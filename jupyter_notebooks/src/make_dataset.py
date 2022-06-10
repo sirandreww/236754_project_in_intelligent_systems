@@ -5,6 +5,7 @@
 """
 
 import pandas as pd
+import random
 
 """
 ***********************************************************************************************************************
@@ -84,7 +85,18 @@ class TimeSeriesDataSet:
         return self.df
 
     def get_dataset_description(self):
-        return self.df.describe().transpose().to_markdown()
+        return self.df.describe().transpose()
+    
+    def plot_random_samples(self, num_of_samples):
+        number_of_all_samples = len(self.df.columns)
+        #Generate 5 random numbers between 10 and 30
+        random_samples_list = random.sample(range(0, number_of_all_samples), num_of_samples)
+        plot_cols = []
+        for sample_num in random_samples_list:
+            plot_cols.append(self.df.columns[sample_num])
+        plot_features = self.df[plot_cols]
+        plot_features.index = self.df.index
+        _ = plot_features.plot(subplots=True)
 
     def __str__(self):
         return self.df.to_markdown()
