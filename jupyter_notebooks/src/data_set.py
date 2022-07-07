@@ -97,6 +97,22 @@ class TimeSeriesDataSet:
         for df in self:
             assert 0 <= df["sample"].min() and df["sample"].max() <= 1
 
+    def split_to_train_and_test(self, test_percentage):
+        assert 0 < test_percentage < 1
+        test_size = int(len(self) * test_percentage)
+        random.shuffle(self.__list_of_df)
+        # copy info to test
+        test = TimeSeriesDataSet(list_of_df=self.__list_of_df[:test_size])
+        test.__is_data_normalized = self.__is_data_normalized
+        test.__max = self.__max
+        test.__min = self.__min
+        # copy info to train
+        train = TimeSeriesDataSet(list_of_df=self.__list_of_df[test_size:])
+        train.__is_data_normalized = self.__is_data_normalized
+        train.__max = self.__max
+        train.__min = self.__min
+        return train, test
+
 
 """
 ***********************************************************************************************************************
@@ -218,6 +234,11 @@ def main():
         dataset.normalize_data()
         print("Plotting.")
         dataset.plot_dataset(number_of_samples=10)
+        print("Splitting.")
+        train, test = dataset.split_to_train_and_test(test_percentage=0.2)
+        print("Plotting.")
+        train.plot_dataset(number_of_samples=10)
+        test.plot_dataset(number_of_samples=10)
     else:
         hist = get_amount_of_data_per_application(
             metric="container_mem",
