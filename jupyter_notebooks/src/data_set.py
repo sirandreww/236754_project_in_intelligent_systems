@@ -38,8 +38,8 @@ class TimeSeriesDataSet:
     """
 
     def __get_min_and_max_of_list_of_df(self):
-        min_sample = self[0][0]
-        max_sample = self[0][0]
+        min_sample = self[0]["sample"][0]
+        max_sample = self[0]["sample"][0]
         for df in self:
             current_max = df["sample"].max()
             current_min = df["sample"].min()
@@ -76,7 +76,7 @@ class TimeSeriesDataSet:
         samples = random.sample(self.__list_of_df, k=number_of_samples)
         for df in samples:
             # plt.close("all")
-            ts = df["sample"]
+            ts = df["sample"].copy()
             ts.index = [time for time in df["time"]]
             ts.plot()
             plt.show()
@@ -87,13 +87,15 @@ class TimeSeriesDataSet:
         min_sample, max_sample = self.__get_min_and_max_of_list_of_df()
         self.__max = max_sample
         self.__min = min_sample
+        # print("max_sample = ", max_sample, " min_sample = ", min_sample)
         for df in self:
-            for i in range(len(df["sample"])):
-                x = df["sample"][i]
-                y = (x - min) / (max - min)
-                df["sample"][i] = y
-
-
+            normalized_sample_column = (df["sample"] - min_sample) / (max_sample - min_sample)
+            # print(normalized_sample_column)
+            df["sample"] = normalized_sample_column
+            assert 0 <= df["sample"].min() and df["sample"].max() <= 1
+        # check
+        for df in self:
+            assert 0 <= df["sample"].min() and df["sample"].max() <= 1
 
 
 """
@@ -180,12 +182,16 @@ def main():
         application_name="bridge-marker",
         path_to_data="../data/"
     )
+    print("Plotting.")
+    dataset.plot_dataset(number_of_samples=10)
     print("Subsampling.")
     dataset.sub_sample_data(sub_sample_rate=5)
+    print("Plotting.")
+    dataset.plot_dataset(number_of_samples=10)
     print("Normalizing.")
     dataset.normalize_data()
     print("Plotting.")
-    dataset.plot_dataset(number_of_samples=4)
+    dataset.plot_dataset(number_of_samples=10)
 
 
 """
