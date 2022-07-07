@@ -20,16 +20,15 @@ import random
 """
 
 
-class TimeSeriesDataSet:
+class TestBench:
     """
-    Class that houses time series data set.
+    Class that takes some other class of a time series forecasting architecture, and tests it on
+    multiple types of data.
     """
 
-    def __init__(self, list_of_df):
-        self.__list_of_df = list_of_df
-        self.__is_data_normalized = False
-        self.__max = None
-        self.__min = None
+    def __init__(self, class_to_test, metrics_and_apps_to_test):
+        self.__class_to_test = class_to_test
+        self.__metrics_and_apps_to_test = metrics_and_apps_to_test
 
     """
     *******************************************************************************************************************
@@ -37,18 +36,7 @@ class TimeSeriesDataSet:
     *******************************************************************************************************************
     """
 
-    def __get_min_and_max_of_list_of_df(self):
-        min_sample = self[0]["sample"][0]
-        max_sample = self[0]["sample"][0]
-        for df in self:
-            current_max = df["sample"].max()
-            current_min = df["sample"].min()
-            if current_max > max_sample:
-                max_sample = current_max
-            if current_min < min_sample:
-                min_sample = current_min
 
-        return min_sample, max_sample
 
     """
     *******************************************************************************************************************
