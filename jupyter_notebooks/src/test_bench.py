@@ -35,11 +35,13 @@ class TestBench:
             ],
             test_percentage=0.2,
             sub_sample_rate=5,
+            path_to_data="../data/",
     ):
         self.__class_to_test = class_to_test
         self.__metrics_and_apps_to_test = metrics_and_apps_to_test
         self.__test_percentage = test_percentage
         self.__sub_sample_rate = sub_sample_rate
+        self.__path_to_data = path_to_data
 
     """
     *******************************************************************************************************************
@@ -51,7 +53,7 @@ class TestBench:
         dataset = get_data_set(
             metric=metric,
             application_name=app,
-            path_to_data="../data/"
+            path_to_data=self.__path_to_data
         )
         dataset.sub_sample_data(sub_sample_rate=self.__sub_sample_rate)
         dataset.normalize_data()
