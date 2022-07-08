@@ -4,18 +4,17 @@
 ***********************************************************************************************************************
 """
 
+import json
+import matplotlib.pyplot as plt
 import pandas as pd
 import random
+from datetime import datetime, timedelta
 from os import listdir
 from os.path import isfile, join
-import json
-from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-import random
 
 """
 ***********************************************************************************************************************
-    Data Merger Class
+    TimeSeriesDataSet Class
 ***********************************************************************************************************************
 """
 
