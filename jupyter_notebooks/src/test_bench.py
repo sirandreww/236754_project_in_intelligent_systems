@@ -89,22 +89,29 @@ class TestBench:
         print("Starting training loop")
         model.learn_from_data_set(training_data_set=train)
         print("Starting testing loop")
-        for test_sample in test:
+        total_mse = 0
+        for i, test_sample in enumerate(test):
             how_much_to_give = len(test_sample) // 2
             how_much_to_predict = len(test_sample) - how_much_to_give
             returned_ts_as_np_array = model.predict(
                 ts_as_df_start=test_sample[: how_much_to_give],
                 how_much_to_predict=how_much_to_predict
             )
+            # make sure the output is in the right format
             assert isinstance(returned_ts_as_np_array, np.ndarray)
             assert len(returned_ts_as_np_array) == how_much_to_predict
             assert returned_ts_as_np_array.shape == (how_much_to_predict,)
             assert returned_ts_as_np_array.dtype == np.float64
-            self.__plot_result(
-                original=test_sample,
-                prediction_as_np_array=returned_ts_as_np_array,
-            )
-        print(f"Done with metric='{metric}', app='{metric}'.")
+            # plot only first 10 results
+            if i < 10:
+                self.__plot_result(
+                    original=test_sample,
+                    prediction_as_np_array=returned_ts_as_np_array,
+                )
+            out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
+            mse_here = (np.square(out_should_be - returned_ts_as_np_array)).mean()
+            total_mse += mse_here
+        print(f"Done with metric='{metric}', app='{metric}', the sum of the mse over the test batch is = {total_mse}.")
 
     """
     *******************************************************************************************************************
