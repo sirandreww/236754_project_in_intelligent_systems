@@ -59,7 +59,8 @@ class TestBench:
         dataset.normalize_data()
         return dataset.split_to_train_and_test(test_percentage=self.__test_percentage)
 
-    def __plot_result(self, ts_input_as_df, ts_output_as_df, prediction_as_np_array):
+    @staticmethod
+    def __plot_result(ts_input_as_df, ts_output_as_df, prediction_as_np_array):
         plt.figure(figsize=(30, 10))
         plt.title('Predict future values for time sequences\n(Dashlines are predicted values)', fontsize=30)
         plt.xlabel('x', fontsize=20)

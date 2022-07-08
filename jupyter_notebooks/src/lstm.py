@@ -57,30 +57,51 @@ class LSTMPredictor(nn.Module):
 class LSTMTester:
     def __init__(self):
         self.model = LSTMPredictor()
+        print(self.model)
 
-    def __turn_training_data_set_into_one_big_tensor(self, training_data_set):
+    @staticmethod
+    def __turn_training_data_set_into_one_big_tensor(training_data_set, number_to_fill_empty_with):
         training_data_set_as_list_of_np = [ts_as_df["sample"].to_numpy() for ts_as_df in training_data_set]
-        training_data_set_as_list_of_tensors = [torch.from_numpy(arr) for arr in training_data_set_as_list_of_np]
+        max_length = max([len(arr) for arr in training_data_set_as_list_of_np])
+        padded_training_data_set_as_list_of_np = [
+            np.concatenate(
+                (
+                    arr,
+                    np.full((max_length - len(arr),), number_to_fill_empty_with)
+                )
+            )
+            for arr in training_data_set_as_list_of_np
+        ]
+        training_data_as_list_of_tensors = [torch.from_numpy(arr) for arr in padded_training_data_set_as_list_of_np]
+        big_tensor = torch.stack(training_data_as_list_of_tensors)
+        return big_tensor
 
     def learn_from_data_set(self, training_data_set):
-        data_as_list_of_np = [ts_as_df["sample"].to_numpy() for ts_as_df in training_data_set]
-        train_input_as_list_of_np = [arr[:-1] for arr in data_as_list_of_np]
-        train_target_as_list_of_np = [arr[1:] for arr in data_as_list_of_np]
-        train_input_list = [torch.from_numpy(arr) for arr in train_input_as_list_of_np]
-        train_target_list = [torch.from_numpy(arr) for arr in train_target_as_list_of_np]
+        """
+        The implementation has a problem, the model is learning on the padding that we added here to
+        make learning run faster. Solving this would add much complexity to the code, and since
+        the padding that we added is the only negative value in the data we think the model might
+        learn to ignore it.
+        """
+        big_tensor = self.__turn_training_data_set_into_one_big_tensor(
+            training_data_set=training_data_set,
+            number_to_fill_empty_with=-2
+        )
+        train_input = big_tensor[:, :-1]
+        train_target = big_tensor[:, 1:]
 
         criterion = nn.MSELoss()
         optimizer = optim.LBFGS(self.model.parameters(), lr=0.8)
 
-        n_steps = 10
+        n_steps = 1
         for i in range(n_steps):
             print("Step", i)
 
             def closure():
                 optimizer.zero_grad()
-                out_list = [self.model.forward(tens[None, :]) for tens in train_input_list]
-                loss = sum([criterion(out[0], target) for out, target in zip(out_list, train_target_list)])
-                print("loss", loss)
+                out = self.model.forward(train_input)
+                loss = criterion(out, train_target)
+                print('loss:', loss.item())
                 loss.backward()
                 return loss
 
