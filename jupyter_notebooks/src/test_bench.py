@@ -5,7 +5,7 @@
 """
 
 from multiprocessing import Process
-import data_set
+from data_set import get_data_set
 
 """
 ***********************************************************************************************************************
@@ -48,7 +48,7 @@ class TestBench:
     """
 
     def __get_data(self, metric, app):
-        dataset = data_set.get_data_set(
+        dataset = get_data_set(
             metric=metric,
             application_name=app,
             path_to_data="../data/"
@@ -79,7 +79,7 @@ class TestBench:
         # plt.close()
 
     def __do_one_test(self, metric, app):
-        print("Fetching data for metric =", metric, ", app =", app)
+        print(f"Fetching data for metric='{metric}', app='{metric}'.")
         train, test = self.__get_data(
             metric=metric,
             app=app,
@@ -103,7 +103,7 @@ class TestBench:
                 ts_output_as_df=test_sample[how_much_to_give:],
                 prediction_as_np_array=returned_ts_as_np_array
             )
-        print("Done with metric =", metric, ", app =", app, "!")
+        print(f"Done with metric='{metric}', app='{metric}'.")
 
     """
     *******************************************************************************************************************
@@ -114,7 +114,7 @@ class TestBench:
     def run_training_and_tests(self):
         print("Powering on test bench")
         for metric, app in self.__metrics_and_apps_to_test:
-            print("testing metric =", metric, ", app =", app)
+            print(f"testing metric='{metric}', app='{metric}'.")
             self.__do_one_test(
                 metric=metric,
                 app=app,
