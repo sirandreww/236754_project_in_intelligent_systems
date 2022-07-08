@@ -4,7 +4,13 @@
 ***********************************************************************************************************************
 """
 
+import matplotlib
+# matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from multiprocessing import Process
+
 from data_set import get_data_set
 
 """
@@ -60,23 +66,14 @@ class TestBench:
         return dataset.split_to_train_and_test(test_percentage=self.__test_percentage)
 
     @staticmethod
-    def __plot_result(ts_input_as_df, ts_output_as_df, prediction_as_np_array):
-        plt.figure(figsize=(30, 10))
-        plt.title('Predict future values for time sequences\n(Dashlines are predicted values)', fontsize=30)
-        plt.xlabel('x', fontsize=20)
-        plt.ylabel('y', fontsize=20)
-        plt.xticks(fontsize=20)
-        plt.yticks(fontsize=20)
-
-        ts_input_as_np = ts_input_as_df["sample"].to_numpy()
-        ts_output_as_np = ts_output_as_df["sample"].to_numpy()
-        n = len(ts_input_as_np)
-        future = len(ts_output_as_np)
-        assert len(prediction_as_np_array) == future
-
-        plt.plot(np.arange(n), ts_input_as_np[:n], 'b', linewidth=2.0)
-        plt.plot(np.arange(n, n + future), ts_output_as_np[:n], 'b', linewidth=2.0)
-        plt.plot(np.arange(n, n + future), yi[n:], 'r:', linewidth=2.0)
+    def __plot_result(original, prediction_as_np_array):
+        original_as_series = original["sample"].copy()
+        predicted_as_series = pd.Series(prediction_as_np_array)
+        x_axis = [time for time in original["time"]]
+        original_as_series.index = x_axis
+        predicted_as_series.index = x_axis[-len(prediction_as_np_array):]
+        ax = original_as_series.plot()
+        predicted_as_series.plot(ax=ax)
         plt.show()
         # plt.savefig('predict%d.pdf' % i)
         # plt.close()
@@ -99,12 +96,13 @@ class TestBench:
                 ts_as_df_start=test_sample[: how_much_to_give],
                 how_much_to_predict=how_much_to_predict
             )
-            assert isinstance(returned_ts_as_np_array, np.array)
-            assert returned_ts_as_np_array.shape == how_much_to_predict
+            assert isinstance(returned_ts_as_np_array, np.ndarray)
+            assert len(returned_ts_as_np_array) == how_much_to_predict
+            assert returned_ts_as_np_array.shape == (how_much_to_predict,)
+            assert returned_ts_as_np_array.dtype == np.float64
             self.__plot_result(
-                ts_input_as_df=test_sample[: how_much_to_give],
-                ts_output_as_df=test_sample[how_much_to_give:],
-                prediction_as_np_array=returned_ts_as_np_array
+                original=test_sample,
+                prediction_as_np_array=returned_ts_as_np_array,
             )
         print(f"Done with metric='{metric}', app='{metric}'.")
 

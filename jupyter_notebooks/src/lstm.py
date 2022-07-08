@@ -77,30 +77,29 @@ class LSTMTester:
         return big_tensor
 
     def learn_from_data_set(self, training_data_set):
-        """
-        The implementation has a problem, the model is learning on the padding that we added here to
-        make learning run faster. Solving this would add much complexity to the code, and since
-        the padding that we added is the only negative value in the data we think the model might
-        learn to ignore it.
-        """
+        pad = -2
         big_tensor = self.__turn_training_data_set_into_one_big_tensor(
             training_data_set=training_data_set,
-            number_to_fill_empty_with=-2
+            number_to_fill_empty_with=pad
         )
         train_input = big_tensor[:, :-1]
         train_target = big_tensor[:, 1:]
+        true_if_pad = train_target == pad
+        false_if_pad = train_target != pad
 
-        criterion = nn.MSELoss()
+        criterion = nn.MSELoss(reduction='none')
         optimizer = optim.LBFGS(self.model.parameters(), lr=0.8)
 
-        n_steps = 1
+        n_steps = 10
         for i in range(n_steps):
             print("Step", i)
 
             def closure():
                 optimizer.zero_grad()
                 out = self.model.forward(train_input)
-                loss = criterion(out, train_target)
+                loss_array = criterion(out, train_target)
+                loss_array[true_if_pad] = 0
+                loss = loss_array.sum() / false_if_pad.sum()
                 print('loss:', loss.item())
                 loss.backward()
                 return loss
@@ -113,7 +112,12 @@ class LSTMTester:
             ts_as_tensor = torch.from_numpy(ts_as_np)
             prediction = self.model.forward(ts_as_tensor[None, :], future=how_much_to_predict)
             y = prediction.detach().numpy()
-            return y
+            res = y[0][-how_much_to_predict:]
+            assert isinstance(res, np.ndarray)
+            assert len(res) == how_much_to_predict
+            assert res.shape == (how_much_to_predict,)
+            assert res.dtype == np.float64
+            return res
 
 
 """
