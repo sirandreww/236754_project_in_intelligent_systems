@@ -22,37 +22,56 @@ import test_bench
 
 
 class LSTMPredictor(nn.Module):
-    def __init__(self, n_hidden=32, number_of_layers=6):
+    def __init__(self, hidden_size=32, num_layers=2):
         super(LSTMPredictor, self).__init__()
-        self.n_hidden = n_hidden
-        self.lstm_list = [nn.LSTMCell(1, n_hidden).double()]
-        self.lstm_list += [nn.LSTMCell(n_hidden, n_hidden).double() for _ in range(number_of_layers - 1)]
-        assert len(self.lstm_list) == number_of_layers
-        self.linear = nn.Linear(self.n_hidden, 1).double()
+        self.hidden_size = hidden_size
+        self.model = nn.ModuleDict({
+            'lstm': nn.LSTM(
+                input_size=1,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                batch_first=True,
+
+            ).double(),
+            'linear': nn.Linear(
+                in_features=hidden_size,
+                out_features=1
+            ).double()
+        })
 
     def forward(self, x, future=0):
-        outputs = []
-        n_samples = x.size(0)
-        hti_cti = [
-            (
-                Variable(torch.zeros(n_samples, self.n_hidden, dtype=torch.float64)),
-                Variable(torch.zeros(n_samples, self.n_hidden, dtype=torch.float64))
-            )
-            for _ in self.lstm_list
-        ]
-        assert len(hti_cti) == len(self.lstm_list)
-        for input_t in x.split(1, dim=1):
-            for i in range(len(self.lstm_list)):
-                hti_cti[i] = self.lstm_list[i](input_t if i == 0 else hti_cti[i-1][0], hti_cti[i])
-            output = self.linear(hti_cti[-1][0])
-            outputs += [output]
-        for _ in range(future):  # if we should predict the future
-            for i in range(len(self.lstm_list)):
-                hti_cti[i] = self.lstm_list[i](output if i == 0 else hti_cti[i-1][0], hti_cti[i])
-            output = self.linear(hti_cti[-1][0])
-            outputs += [output]
-        outputs = torch.cat(outputs, dim=1)
-        return outputs
+        assert len(x.shape) == 3
+        out = None
+        for i in range(future + 1):
+            out, _ = self.model['lstm'](x)
+            out = self.model['linear'](out)
+            last_sample_in_each_series = out[:, -1, None, :]
+            assert last_sample_in_each_series.shape == (x.size(0), 1, x.size(2))
+            next_x = torch.cat((x, last_sample_in_each_series), dim=1)
+            x = next_x
+        return out
+        # outputs = []
+        # n_samples = x.size(0)
+        # hti_cti = [
+        #     (
+        #         Variable(torch.zeros(n_samples, self.n_hidden, dtype=torch.float64)),
+        #         Variable(torch.zeros(n_samples, self.n_hidden, dtype=torch.float64))
+        #     )
+        #     for _ in self.lstm_list
+        # ]
+        # assert len(hti_cti) == len(self.lstm_list)
+        # for input_t in x.split(1, dim=1):
+        #     for i in range(len(self.lstm_list)):
+        #         hti_cti[i] = self.lstm_list[i](input_t if i == 0 else hti_cti[i-1][0], hti_cti[i])
+        #     output = self.linear(hti_cti[-1][0])
+        #     outputs += [output]
+        # for _ in range(future):  # if we should predict the future
+        #     for i in range(len(self.lstm_list)):
+        #         hti_cti[i] = self.lstm_list[i](output if i == 0 else hti_cti[i-1][0], hti_cti[i])
+        #     output = self.linear(hti_cti[-1][0])
+        #     outputs += [output]
+        # outputs = torch.cat(outputs, dim=1)
+        # return outputs
 
 
 """
@@ -65,10 +84,15 @@ class LSTMPredictor(nn.Module):
 class LSTMTester:
     def __init__(self):
         self.model = LSTMPredictor()
-        self.pad = -2
-        self.batch_size = 64
-        self.num_epochs = 30
         print(self.model)
+        self.pad = -2
+        print("pad =", self.pad)
+        self.batch_size = 100
+        print("batch_size =", self.batch_size)
+        self.num_epochs = 1000
+        print("num_epochs =", self.num_epochs)
+        self.learning_rate = 0.005
+        print("learning_rate =", self.learning_rate)
 
     @staticmethod
     def __get_data_as_list_of_np_arrays(training_data_set):
@@ -96,7 +120,7 @@ class LSTMTester:
             for arr in batch_as_list
         ]
         batch_as_list_of_tensors = [
-            Variable(torch.from_numpy(arr)) for arr in padded_batch_as_list_of_np
+            Variable(torch.from_numpy(arr)[:, None]) for arr in padded_batch_as_list_of_np
         ]
         batch_tensor = Variable(torch.stack(batch_as_list_of_tensors))
         train_input = batch_tensor[:, :-1]
@@ -116,6 +140,7 @@ class LSTMTester:
         return result
 
     def __plot_prediction_of_random_sample(self, training_data_set):
+        print("Plotting prediction for some random sample in the test set.")
         test_sample = random.choice([ts for ts in training_data_set])
         how_much_to_give = len(test_sample) // 2
         how_much_to_predict = len(test_sample) - how_much_to_give
@@ -127,6 +152,9 @@ class LSTMTester:
             original=test_sample,
             prediction_as_np_array=returned_ts_as_np_array,
         )
+        out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
+        mse_here = (np.square(out_should_be - returned_ts_as_np_array)).mean()
+        print(f"MSE of this prediction is: {mse_here}")
 
     def learn_from_data_set(self, training_data_set):
         list_of_np_array = self.__get_data_as_list_of_np_arrays(
@@ -136,16 +164,16 @@ class LSTMTester:
             list_of_np_array=list_of_np_array
         )
         criterion = nn.MSELoss(reduction='none')
-        optimizer = optim.Adam(self.model.parameters())
+        optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         for e in range(self.num_epochs):
             print(f"Epoch: {e+1} / {self.num_epochs}")
-            for train_input, train_target, true_if_pad, false_if_pad in list_of_batch:
+            for i, (train_input, train_target, true_if_pad, false_if_pad) in enumerate(list_of_batch):
                 optimizer.zero_grad()
                 out = self.model.forward(train_input)
                 loss_array = criterion(out, train_target)
                 loss_array[true_if_pad] = 0
                 loss = loss_array.sum() / false_if_pad.sum()
-                print('loss of batch:', loss.item())
+                print(f"loss of batch {i} / {len(list_of_batch)}: {loss.item()}")
                 loss.backward()
                 optimizer.step()
             # choose random sample and plot
@@ -155,9 +183,10 @@ class LSTMTester:
         with torch.no_grad():
             ts_as_np = ts_as_df_start["sample"].to_numpy()
             ts_as_tensor = torch.from_numpy(ts_as_np)
-            prediction = self.model.forward(ts_as_tensor[None, :], future=how_much_to_predict)
-            y = prediction.detach().numpy()
-            res = y[0][-how_much_to_predict:]
+            prediction = self.model.forward(ts_as_tensor[None, :, None], future=how_much_to_predict)
+            prediction_flattened = prediction.view(len(ts_as_np) + how_much_to_predict)
+            y = prediction_flattened.detach().numpy()
+            res = y[-how_much_to_predict:]
             assert isinstance(res, np.ndarray)
             assert len(res) == how_much_to_predict
             assert res.shape == (how_much_to_predict,)

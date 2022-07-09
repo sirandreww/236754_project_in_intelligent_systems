@@ -71,6 +71,16 @@ class TimeSeriesDataSet:
 
         self.__list_of_df = new_list_of_df
 
+    def filter_data_that_is_too_short(self, data_length_limit):
+        new_list_of_df = []
+
+        for df in self:
+            if len(df) > data_length_limit:
+                new_list_of_df.append(df)
+
+        self.__list_of_df = new_list_of_df
+
+
     def plot_dataset(self, number_of_samples):
         samples = random.sample(self.__list_of_df, k=number_of_samples)
         for df in samples:

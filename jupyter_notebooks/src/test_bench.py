@@ -61,12 +61,14 @@ class TestBench:
             test_percentage=0.2,
             sub_sample_rate=5,
             path_to_data="../data/",
+            data_length_limit=100
     ):
         self.__class_to_test = class_to_test
         self.__metrics_and_apps_to_test = metrics_and_apps_to_test
         self.__test_percentage = test_percentage
         self.__sub_sample_rate = sub_sample_rate
         self.__path_to_data = path_to_data
+        self.__data_length_limit = data_length_limit
 
     """
     *******************************************************************************************************************
@@ -80,11 +82,17 @@ class TestBench:
             application_name=app,
             path_to_data=self.__path_to_data
         )
+        print(f"Subsampling data from 1 sample per 1 minute to 1 sample per {self.__sub_sample_rate} minutes.")
         dataset.sub_sample_data(sub_sample_rate=self.__sub_sample_rate)
+        print(f"Throwing out data that is less than {self.__data_length_limit * self.__sub_sample_rate} minutes long.")
+        dataset.filter_data_that_is_too_short(data_length_limit=self.__data_length_limit)
+        print("Normalizing data.")
         dataset.normalize_data()
-        return dataset.split_to_train_and_test(test_percentage=self.__test_percentage)
-        # plt.savefig('predict%d.pdf' % i)
-        # plt.close()
+        print("Splitting data into train and test")
+        train, test = dataset.split_to_train_and_test(test_percentage=self.__test_percentage)
+        print(f"Amount of train data is {len(train)}")
+        print(f"Amount of test data is {len(test)}")
+        return train, test
 
     def __do_one_test(self, metric, app):
         print(f"Fetching data for metric='{metric}', app='{metric}'.")
@@ -112,7 +120,7 @@ class TestBench:
             assert returned_ts_as_np_array.dtype == np.float64
             # plot only first 10 results
             if i < 10:
-                self.plot_result(
+                plot_result(
                     original=test_sample,
                     prediction_as_np_array=returned_ts_as_np_array,
                 )
