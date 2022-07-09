@@ -22,7 +22,7 @@ import test_bench
 
 
 class LSTMPredictor(nn.Module):
-    def __init__(self, hidden_size=32, num_layers=2):
+    def __init__(self, hidden_size=128, num_layers=2):
         super(LSTMPredictor, self).__init__()
         self.hidden_size = hidden_size
         self.model = nn.ModuleDict({
@@ -32,11 +32,11 @@ class LSTMPredictor(nn.Module):
                 num_layers=num_layers,
                 batch_first=True,
 
-            ).double(),
+            ),
             'linear': nn.Linear(
                 in_features=hidden_size,
                 out_features=1
-            ).double()
+            )
         })
 
     def forward(self, x, future=0):
@@ -50,28 +50,6 @@ class LSTMPredictor(nn.Module):
             next_x = torch.cat((x, last_sample_in_each_series), dim=1)
             x = next_x
         return out
-        # outputs = []
-        # n_samples = x.size(0)
-        # hti_cti = [
-        #     (
-        #         Variable(torch.zeros(n_samples, self.n_hidden, dtype=torch.float64)),
-        #         Variable(torch.zeros(n_samples, self.n_hidden, dtype=torch.float64))
-        #     )
-        #     for _ in self.lstm_list
-        # ]
-        # assert len(hti_cti) == len(self.lstm_list)
-        # for input_t in x.split(1, dim=1):
-        #     for i in range(len(self.lstm_list)):
-        #         hti_cti[i] = self.lstm_list[i](input_t if i == 0 else hti_cti[i-1][0], hti_cti[i])
-        #     output = self.linear(hti_cti[-1][0])
-        #     outputs += [output]
-        # for _ in range(future):  # if we should predict the future
-        #     for i in range(len(self.lstm_list)):
-        #         hti_cti[i] = self.lstm_list[i](output if i == 0 else hti_cti[i-1][0], hti_cti[i])
-        #     output = self.linear(hti_cti[-1][0])
-        #     outputs += [output]
-        # outputs = torch.cat(outputs, dim=1)
-        # return outputs
 
 
 """
@@ -87,12 +65,16 @@ class LSTMTester:
         print(self.model)
         self.pad = -2
         print("pad =", self.pad)
-        self.batch_size = 100
+        self.batch_size = 8
         print("batch_size =", self.batch_size)
         self.num_epochs = 1000
         print("num_epochs =", self.num_epochs)
         self.learning_rate = 0.005
         print("learning_rate =", self.learning_rate)
+
+    @staticmethod
+    def __torch_from_numpy(array):
+        return torch.from_numpy(array).to(torch.float32)
 
     @staticmethod
     def __get_data_as_list_of_np_arrays(training_data_set):
@@ -120,7 +102,7 @@ class LSTMTester:
             for arr in batch_as_list
         ]
         batch_as_list_of_tensors = [
-            Variable(torch.from_numpy(arr)[:, None]) for arr in padded_batch_as_list_of_np
+            Variable(self.__torch_from_numpy(arr)[:, None]) for arr in padded_batch_as_list_of_np
         ]
         batch_tensor = Variable(torch.stack(batch_as_list_of_tensors))
         train_input = batch_tensor[:, :-1]
@@ -182,7 +164,7 @@ class LSTMTester:
     def predict(self, ts_as_df_start, how_much_to_predict):
         with torch.no_grad():
             ts_as_np = ts_as_df_start["sample"].to_numpy()
-            ts_as_tensor = torch.from_numpy(ts_as_np)
+            ts_as_tensor = self.__torch_from_numpy(ts_as_np)
             prediction = self.model.forward(ts_as_tensor[None, :, None], future=how_much_to_predict)
             prediction_flattened = prediction.view(len(ts_as_np) + how_much_to_predict)
             y = prediction_flattened.detach().numpy()
