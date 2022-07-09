@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.autograd import Variable
 
 """
 ***********************************************************************************************************************
@@ -18,30 +19,34 @@ import torch.optim as optim
 
 
 class LSTMPredictor(nn.Module):
-    def __init__(self, n_hidden=51):
+    def __init__(self, n_hidden=32, number_of_layers=6):
         super(LSTMPredictor, self).__init__()
         self.n_hidden = n_hidden
-        self.lstm1 = nn.LSTMCell(1, self.n_hidden).double()
-        self.lstm2 = nn.LSTMCell(self.n_hidden, self.n_hidden).double()
+        self.lstm_list = [nn.LSTMCell(1, n_hidden).double()]
+        self.lstm_list += [nn.LSTMCell(n_hidden, n_hidden).double() for _ in range(number_of_layers - 1)]
+        assert len(self.lstm_list) == number_of_layers
         self.linear = nn.Linear(self.n_hidden, 1).double()
 
     def forward(self, x, future=0):
         outputs = []
         n_samples = x.size(0)
-        h_t = torch.zeros(n_samples, self.n_hidden, dtype=torch.float64)
-        c_t = torch.zeros(n_samples, self.n_hidden, dtype=torch.float64)
-        h_t2 = torch.zeros(n_samples, self.n_hidden, dtype=torch.float64)
-        c_t2 = torch.zeros(n_samples, self.n_hidden, dtype=torch.float64)
-
+        hti_cti = [
+            (
+                Variable(torch.zeros(n_samples, self.n_hidden, dtype=torch.float64)),
+                Variable(torch.zeros(n_samples, self.n_hidden, dtype=torch.float64))
+            )
+            for _ in self.lstm_list
+        ]
+        assert len(hti_cti) == len(self.lstm_list)
         for input_t in x.split(1, dim=1):
-            h_t, c_t = self.lstm1(input_t, (h_t, c_t))
-            h_t2, c_t2 = self.lstm2(h_t, (h_t2, c_t2))
-            output = self.linear(h_t2)
+            for i in range(len(self.lstm_list)):
+                hti_cti[i] = self.lstm_list[i](input_t if i == 0 else hti_cti[i-1][0], hti_cti[i])
+            output = self.linear(hti_cti[-1][0])
             outputs += [output]
-        for i in range(future):  # if we should predict the future
-            h_t, c_t = self.lstm1(output, (h_t, c_t))
-            h_t2, c_t2 = self.lstm2(h_t, (h_t2, c_t2))
-            output = self.linear(h_t2)
+        for _ in range(future):  # if we should predict the future
+            for i in range(len(self.lstm_list)):
+                hti_cti[i] = self.lstm_list[i](output if i == 0 else hti_cti[i-1][0], hti_cti[i])
+            output = self.linear(hti_cti[-1][0])
             outputs += [output]
         outputs = torch.cat(outputs, dim=1)
         return outputs
@@ -72,8 +77,8 @@ class LSTMTester:
             )
             for arr in training_data_set_as_list_of_np
         ]
-        training_data_as_list_of_tensors = [torch.from_numpy(arr) for arr in padded_training_data_set_as_list_of_np]
-        big_tensor = torch.stack(training_data_as_list_of_tensors)
+        training_data_as_list_of_tensors = [Variable(torch.from_numpy(arr)) for arr in padded_training_data_set_as_list_of_np]
+        big_tensor = Variable(torch.stack(training_data_as_list_of_tensors))
         return big_tensor
 
     def learn_from_data_set(self, training_data_set):
