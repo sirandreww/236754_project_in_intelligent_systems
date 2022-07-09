@@ -10,6 +10,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
+import random
+import math
+import test_bench
 
 """
 ***********************************************************************************************************************
@@ -62,54 +65,91 @@ class LSTMPredictor(nn.Module):
 class LSTMTester:
     def __init__(self):
         self.model = LSTMPredictor()
+        self.pad = -2
+        self.batch_size = 64
+        self.num_epochs = 30
         print(self.model)
 
     @staticmethod
-    def __turn_training_data_set_into_one_big_tensor(training_data_set, number_to_fill_empty_with):
+    def __get_data_as_list_of_np_arrays(training_data_set):
         training_data_set_as_list_of_np = [ts_as_df["sample"].to_numpy() for ts_as_df in training_data_set]
-        max_length = max([len(arr) for arr in training_data_set_as_list_of_np])
-        padded_training_data_set_as_list_of_np = [
+        return training_data_set_as_list_of_np
+
+    def __partition_list_to_batches(self, list_of_np_array):
+        random.shuffle(list_of_np_array)
+        num_batches = math.ceil(len(list_of_np_array) / self.batch_size)
+        result = [
+            list_of_np_array[i * self.batch_size: (i+1)*self.batch_size]
+            for i in range(num_batches)
+        ]
+        return result
+
+    def __prepare_batch(self, batch_as_list):
+        max_length = max([len(arr) for arr in batch_as_list])
+        padded_batch_as_list_of_np = [
             np.concatenate(
                 (
                     arr,
-                    np.full((max_length - len(arr),), number_to_fill_empty_with)
+                    np.full((max_length - len(arr),), self.pad)
                 )
             )
-            for arr in training_data_set_as_list_of_np
+            for arr in batch_as_list
         ]
-        training_data_as_list_of_tensors = [Variable(torch.from_numpy(arr)) for arr in padded_training_data_set_as_list_of_np]
-        big_tensor = Variable(torch.stack(training_data_as_list_of_tensors))
-        return big_tensor
+        batch_as_list_of_tensors = [
+            Variable(torch.from_numpy(arr)) for arr in padded_batch_as_list_of_np
+        ]
+        batch_tensor = Variable(torch.stack(batch_as_list_of_tensors))
+        train_input = batch_tensor[:, :-1]
+        train_target = batch_tensor[:, 1:]
+        true_if_pad = (train_target == self.pad)
+        false_if_pad = (train_target != self.pad)
+        return train_input, train_target, true_if_pad, false_if_pad
+
+    def __list_of_np_array_to_list_of_batch(self, list_of_np_array):
+        batches = self.__partition_list_to_batches(
+            list_of_np_array=list_of_np_array
+        )
+        result = []
+        for batch in batches:
+            b = self.__prepare_batch(batch_as_list=batch)
+            result += [b]
+        return result
+
+    def __plot_prediction_of_random_sample(self, training_data_set):
+        test_sample = random.choice([ts for ts in training_data_set])
+        how_much_to_give = len(test_sample) // 2
+        how_much_to_predict = len(test_sample) - how_much_to_give
+        returned_ts_as_np_array = self.predict(
+            ts_as_df_start=test_sample[: how_much_to_give],
+            how_much_to_predict=how_much_to_predict
+        )
+        test_bench.plot_result(
+            original=test_sample,
+            prediction_as_np_array=returned_ts_as_np_array,
+        )
 
     def learn_from_data_set(self, training_data_set):
-        pad = -2
-        big_tensor = self.__turn_training_data_set_into_one_big_tensor(
+        list_of_np_array = self.__get_data_as_list_of_np_arrays(
             training_data_set=training_data_set,
-            number_to_fill_empty_with=pad
         )
-        train_input = big_tensor[:, :-1]
-        train_target = big_tensor[:, 1:]
-        true_if_pad = train_target == pad
-        false_if_pad = train_target != pad
-
+        list_of_batch = self.__list_of_np_array_to_list_of_batch(
+            list_of_np_array=list_of_np_array
+        )
         criterion = nn.MSELoss(reduction='none')
-        optimizer = optim.LBFGS(self.model.parameters(), lr=0.8)
-
-        n_steps = 10
-        for i in range(n_steps):
-            print("Step", i)
-
-            def closure():
+        optimizer = optim.Adam(self.model.parameters())
+        for e in range(self.num_epochs):
+            print(f"Epoch: {e+1} / {self.num_epochs}")
+            for train_input, train_target, true_if_pad, false_if_pad in list_of_batch:
                 optimizer.zero_grad()
                 out = self.model.forward(train_input)
                 loss_array = criterion(out, train_target)
                 loss_array[true_if_pad] = 0
                 loss = loss_array.sum() / false_if_pad.sum()
-                print('loss:', loss.item())
+                print('loss of batch:', loss.item())
                 loss.backward()
-                return loss
-
-            optimizer.step(closure)
+                optimizer.step()
+            # choose random sample and plot
+            self.__plot_prediction_of_random_sample(training_data_set=training_data_set)
 
     def predict(self, ts_as_df_start, how_much_to_predict):
         with torch.no_grad():
@@ -133,7 +173,6 @@ class LSTMTester:
 
 
 def main():
-    import test_bench
     tb = test_bench.TestBench(
         class_to_test=LSTMTester,
         metrics_and_apps_to_test=[("node_mem", "moc/smaug")]

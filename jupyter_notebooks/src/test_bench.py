@@ -13,6 +13,25 @@ from multiprocessing import Process
 
 from data_set import get_data_set
 
+
+"""
+***********************************************************************************************************************
+    plot_result
+***********************************************************************************************************************
+"""
+
+
+def plot_result(original, prediction_as_np_array):
+    original_as_series = original["sample"].copy()
+    predicted_as_series = pd.Series(prediction_as_np_array)
+    x_axis = [time for time in original["time"]]
+    original_as_series.index = x_axis
+    predicted_as_series.index = x_axis[-len(prediction_as_np_array):]
+    ax = original_as_series.plot()
+    predicted_as_series.plot(ax=ax)
+    plt.show()
+
+
 """
 ***********************************************************************************************************************
     Test Bench Class
@@ -64,17 +83,6 @@ class TestBench:
         dataset.sub_sample_data(sub_sample_rate=self.__sub_sample_rate)
         dataset.normalize_data()
         return dataset.split_to_train_and_test(test_percentage=self.__test_percentage)
-
-    @staticmethod
-    def __plot_result(original, prediction_as_np_array):
-        original_as_series = original["sample"].copy()
-        predicted_as_series = pd.Series(prediction_as_np_array)
-        x_axis = [time for time in original["time"]]
-        original_as_series.index = x_axis
-        predicted_as_series.index = x_axis[-len(prediction_as_np_array):]
-        ax = original_as_series.plot()
-        predicted_as_series.plot(ax=ax)
-        plt.show()
         # plt.savefig('predict%d.pdf' % i)
         # plt.close()
 
@@ -104,7 +112,7 @@ class TestBench:
             assert returned_ts_as_np_array.dtype == np.float64
             # plot only first 10 results
             if i < 10:
-                self.__plot_result(
+                self.plot_result(
                     original=test_sample,
                     prediction_as_np_array=returned_ts_as_np_array,
                 )
