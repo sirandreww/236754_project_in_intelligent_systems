@@ -31,10 +31,12 @@ class ExtractTensorAfterLSTM(nn.Module):
     @staticmethod
     def forward(x):
         # Output shape (batch, features, hidden)
-        tensor, _ = x
+        out, (h_n, c_t) = x
+        # assert torch.equal(h_n, out)
         # Reshape shape (batch, hidden)
         # return tensor[:, -1, :]
-        return tensor
+        return out
+
 
 """
 ***********************************************************************************************************************
@@ -44,7 +46,7 @@ class ExtractTensorAfterLSTM(nn.Module):
 
 
 class LSTMPredictor(nn.Module):
-    def __init__(self, hidden_size=128, num_layers=2):
+    def __init__(self, hidden_size=128, num_layers=1):
         super(LSTMPredictor, self).__init__()
         self.model = nn.Sequential(
             nn.LSTM(
@@ -61,14 +63,13 @@ class LSTMPredictor(nn.Module):
         )
 
     def forward(self, x, future=0):
-        # assert len(x.shape) == 3
-        # out = None
-        # for i in range(future + 1):
-        out = self.model(x)
-        # last_sample_in_each_series = out[:, -1, None, :]
-        # assert last_sample_in_each_series.shape == (x.size(0), 1, x.size(2))
-        # next_x = torch.cat((x, last_sample_in_each_series), dim=1)
-        # x = next_x
+        out = None
+        for i in range(future + 1):
+            out = self.model(x)
+            last_sample_in_each_series = out[:, -1, None, :]
+            assert last_sample_in_each_series.shape == (x.size(0), 1, x.size(2))
+            next_x = torch.cat((x, last_sample_in_each_series), dim=1)
+            x = next_x
         return out
 
 
@@ -85,7 +86,7 @@ class LSTMTester:
         print(self.model)
         self.pad = -2
         print("pad =", self.pad)
-        self.batch_size = 2
+        self.batch_size = 1
         print("batch_size =", self.batch_size)
         self.num_epochs = 1000
         print("num_epochs =", self.num_epochs)
@@ -177,8 +178,9 @@ class LSTMTester:
                 out = self.model.forward(train_input, future=predict_length)
                 loss_array = criterion(out, train_target)
                 loss_array[true_if_pad] = 0
-                loss = loss_array.sum() / false_if_pad.sum()
-                print(f"loss of batch {i} / {len(list_of_batch)}: {loss.item()}")
+                # loss = loss_array.sum() / false_if_pad.sum()
+                loss = loss_array.sum()
+                # print(f"loss of batch {i} / {len(list_of_batch)}: {loss.item()}")
                 sum_of_losses += loss.item()
                 loss.backward()
                 optimizer.step()
@@ -195,11 +197,11 @@ class LSTMTester:
             prediction = self.model.forward(ts_as_tensor[None, :, None], future=how_much_to_predict)
             prediction_flattened = prediction.view(len(ts_as_np) + how_much_to_predict)
             y = prediction_flattened.detach().numpy()
-            res = y[-how_much_to_predict:]
+            res = np.float64(y[-how_much_to_predict:])
             assert isinstance(res, np.ndarray)
             assert len(res) == how_much_to_predict
             assert res.shape == (how_much_to_predict,)
-            assert res.dtype == np.float32
+            assert res.dtype == np.float64
             return res
 
 

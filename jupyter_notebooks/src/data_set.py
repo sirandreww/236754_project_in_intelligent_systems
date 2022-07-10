@@ -11,6 +11,7 @@ import random
 from datetime import datetime, timedelta
 from os import listdir
 from os.path import isfile, join
+import numpy as np
 
 """
 ***********************************************************************************************************************
@@ -26,9 +27,9 @@ class TimeSeriesDataSet:
 
     def __init__(self, list_of_df):
         self.__list_of_df = list_of_df
-        self.__is_data_normalized = False
-        self.__max = None
-        self.__min = None
+        self.__is_data_scaled = False
+        self.__mean = None
+        self.__std = None
 
     """
     *******************************************************************************************************************
@@ -36,18 +37,12 @@ class TimeSeriesDataSet:
     *******************************************************************************************************************
     """
 
-    def __get_min_and_max_of_list_of_df(self):
-        min_sample = self[0]["sample"][0]
-        max_sample = self[0]["sample"][0]
+    def __get_combined_dataset(self):
+        np_array_list = []
         for df in self:
-            current_max = df["sample"].max()
-            current_min = df["sample"].min()
-            if current_max > max_sample:
-                max_sample = current_max
-            if current_min < min_sample:
-                min_sample = current_min
-
-        return min_sample, max_sample
+            np_array_list += [df["sample"].to_numpy()]
+        flat_np_array = np.concatenate(np_array_list)
+        return flat_np_array
 
     """
     *******************************************************************************************************************
@@ -89,21 +84,17 @@ class TimeSeriesDataSet:
             ts.plot()
             plt.show()
 
-    def normalize_data(self):
-        assert not self.__is_data_normalized
-        self.__is_data_normalized = True
-        min_sample, max_sample = self.__get_min_and_max_of_list_of_df()
-        self.__max = max_sample
-        self.__min = min_sample
+    def scale_data(self):
+        assert not self.__is_data_scaled
+        self.__is_data_scaled = True
+        np_array = self.__get_combined_dataset()
+        self.__mean = np_array.mean()
+        self.__std = np_array.std()
         # print("max_sample = ", max_sample, " min_sample = ", min_sample)
         for df in self:
-            normalized_sample_column = (df["sample"] - min_sample) / (max_sample - min_sample)
+            standardized_sample_column = (df["sample"] - self.__mean) / self.__std
             # print(normalized_sample_column)
-            df["sample"] = normalized_sample_column
-            assert 0 <= df["sample"].min() and df["sample"].max() <= 1
-        # check
-        for df in self:
-            assert 0 <= df["sample"].min() and df["sample"].max() <= 1
+            df["sample"] = standardized_sample_column
 
     def split_to_train_and_test(self, test_percentage):
         assert 0 < test_percentage < 1
@@ -111,14 +102,14 @@ class TimeSeriesDataSet:
         random.shuffle(self.__list_of_df)
         # copy info to test
         test = TimeSeriesDataSet(list_of_df=self.__list_of_df[:test_size])
-        test.__is_data_normalized = self.__is_data_normalized
-        test.__max = self.__max
-        test.__min = self.__min
+        test.__is_data_scaled = self.__is_data_scaled
+        test.__mean = self.__mean
+        test.__std = self.__std
         # copy info to train
         train = TimeSeriesDataSet(list_of_df=self.__list_of_df[test_size:])
-        train.__is_data_normalized = self.__is_data_normalized
-        train.__max = self.__max
-        train.__min = self.__min
+        train.__is_data_scaled = self.__is_data_scaled
+        train.__mean = self.__mean
+        train.__std = self.__std
         return train, test
 
 
