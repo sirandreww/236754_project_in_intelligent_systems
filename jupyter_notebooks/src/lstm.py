@@ -17,6 +17,27 @@ import time
 
 """
 ***********************************************************************************************************************
+    ExtractTensorAfterLSTM class
+***********************************************************************************************************************
+"""
+
+
+# LSTM() returns tuple of (tensor, (recurrent state))
+class ExtractTensorAfterLSTM(nn.Module):
+    """
+    Helper class that allows LSTM to be used inside nn.Sequential.
+    Usually would be out right after nn.LSTM and right before nn.Linear.
+    """
+    @staticmethod
+    def forward(x):
+        # Output shape (batch, features, hidden)
+        tensor, _ = x
+        # Reshape shape (batch, hidden)
+        # return tensor[:, -1, :]
+        return tensor
+
+"""
+***********************************************************************************************************************
     LSTMPredictor class
 ***********************************************************************************************************************
 """
@@ -25,34 +46,29 @@ import time
 class LSTMPredictor(nn.Module):
     def __init__(self, hidden_size=128, num_layers=2):
         super(LSTMPredictor, self).__init__()
-        self.hidden_size = hidden_size
-        self.model = nn.ModuleDict({
-            'lstm': nn.LSTM(
+        self.model = nn.Sequential(
+            nn.LSTM(
                 input_size=1,
                 hidden_size=hidden_size,
                 num_layers=num_layers,
                 batch_first=True,
-                dropout=0.2
             ),
-            'linear': nn.Linear(
+            ExtractTensorAfterLSTM(),
+            nn.Linear(
                 in_features=hidden_size,
                 out_features=1
             )
-        })
+        )
 
     def forward(self, x, future=0):
-        # something for distributed learning
-        self.model['lstm'].flatten_parameters()
-        assert len(x.shape) == 3
-        out = None
-        for i in range(future + 1):
-            _, (h_n, _) = self.model['lstm'](x)
-
-            out = self.model['linear'](h_n[-1])
-            last_sample_in_each_series = out[:, -1, None, :]
-            assert last_sample_in_each_series.shape == (x.size(0), 1, x.size(2))
-            next_x = torch.cat((x, last_sample_in_each_series), dim=1)
-            x = next_x
+        # assert len(x.shape) == 3
+        # out = None
+        # for i in range(future + 1):
+        out = self.model(x)
+        # last_sample_in_each_series = out[:, -1, None, :]
+        # assert last_sample_in_each_series.shape == (x.size(0), 1, x.size(2))
+        # next_x = torch.cat((x, last_sample_in_each_series), dim=1)
+        # x = next_x
         return out
 
 
@@ -69,7 +85,7 @@ class LSTMTester:
         print(self.model)
         self.pad = -2
         print("pad =", self.pad)
-        self.batch_size = 8
+        self.batch_size = 2
         print("batch_size =", self.batch_size)
         self.num_epochs = 1000
         print("num_epochs =", self.num_epochs)

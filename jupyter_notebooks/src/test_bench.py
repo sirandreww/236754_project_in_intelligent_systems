@@ -62,7 +62,7 @@ class TestBench:
             test_percentage=0.2,
             sub_sample_rate=5,
             path_to_data="../data/",
-            data_length_limit=100
+            data_length_limit=20
     ):
         self.__class_to_test = class_to_test
         self.__metrics_and_apps_to_test = metrics_and_apps_to_test
@@ -132,7 +132,7 @@ class TestBench:
             out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
             mse_here = (np.square(out_should_be - returned_ts_as_np_array)).mean()
             total_mse += mse_here
-        print(f"{self.__msg}Done with metric='{metric}', app='{metric}', the sum of the mse over the test batch is = {total_mse}.")
+        print(f"{self.__msg}Done with metric='{metric}', app='{metric}', the sum of the mse over the test set is = {total_mse}.")
 
     """
     *******************************************************************************************************************

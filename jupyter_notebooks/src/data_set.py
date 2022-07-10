@@ -80,7 +80,6 @@ class TimeSeriesDataSet:
 
         self.__list_of_df = new_list_of_df
 
-
     def plot_dataset(self, number_of_samples):
         samples = random.sample(self.__list_of_df, k=number_of_samples)
         for df in samples:
@@ -142,9 +141,14 @@ def __get_names_of_relevant_files(metric, path_to_data):
     return relevant_files
 
 
+def __get_app_name_from_key(key: str):
+    app_name = key.split(", ")[0]
+    return app_name
+
+
 def __get_data_as_list_of_df_from_file(data_dict, application_name):
     result_list = []
-    relevant_keys = [k for k in data_dict.keys() if (application_name in k)]
+    relevant_keys = [k for k in data_dict.keys() if (application_name == __get_app_name_from_key(key=k))]
     for k in relevant_keys:
         list_of_ts = data_dict[k]
         for time_series in list_of_ts:
@@ -202,7 +206,7 @@ def get_amount_of_data_per_application(metric, path_to_data):
         with open(f'{path_to_data}{file_name}') as json_file:
             data_dict = json.load(json_file)
             for k in data_dict.keys():
-                app_name = k.split(", ")[0]
+                app_name = __get_app_name_from_key(key=k)
                 # count number of time series samples
                 amount_of_data = 0
                 for ts in data_dict[k]:
