@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from multiprocessing import Process
+import time
 
 from data_set import get_data_set
 
@@ -69,6 +70,7 @@ class TestBench:
         self.__sub_sample_rate = sub_sample_rate
         self.__path_to_data = path_to_data
         self.__data_length_limit = data_length_limit
+        self.__msg = "[TEST BENCH] "
 
     """
     *******************************************************************************************************************
@@ -82,29 +84,32 @@ class TestBench:
             application_name=app,
             path_to_data=self.__path_to_data
         )
-        print(f"Subsampling data from 1 sample per 1 minute to 1 sample per {self.__sub_sample_rate} minutes.")
+        print(f"{self.__msg}Subsampling data from 1 sample per 1 minute to 1 sample per {self.__sub_sample_rate} minutes.")
         dataset.sub_sample_data(sub_sample_rate=self.__sub_sample_rate)
-        print(f"Throwing out data that is less than {self.__data_length_limit * self.__sub_sample_rate} minutes long.")
+        print(f"{self.__msg}Throwing out data that is less than {self.__data_length_limit * self.__sub_sample_rate} minutes long.")
         dataset.filter_data_that_is_too_short(data_length_limit=self.__data_length_limit)
-        print("Normalizing data.")
+        print(f"{self.__msg}Normalizing data.")
         dataset.normalize_data()
-        print("Splitting data into train and test")
+        print(f"{self.__msg}Splitting data into train and test")
         train, test = dataset.split_to_train_and_test(test_percentage=self.__test_percentage)
-        print(f"Amount of train data is {len(train)}")
-        print(f"Amount of test data is {len(test)}")
+        print(f"{self.__msg}Amount of train data is {len(train)}")
+        print(f"{self.__msg}Amount of test data is {len(test)}")
         return train, test
 
     def __do_one_test(self, metric, app):
-        print(f"Fetching data for metric='{metric}', app='{metric}'.")
+        print(f"{self.__msg}Fetching data for metric='{metric}', app='{metric}'.")
         train, test = self.__get_data(
             metric=metric,
             app=app,
         )
-        print("Making an instance of the class we want to test")
+        print(f"{self.__msg}Making an instance of the class we want to test")
         model = self.__class_to_test()
-        print("Starting training loop")
+        print(f"{self.__msg}Starting training loop")
+        training_start_time = time.time()
         model.learn_from_data_set(training_data_set=train)
-        print("Starting testing loop")
+        training_stop_time = time.time()
+        print(f"{self.__msg}Training took {training_stop_time - training_start_time} seconds.")
+        print(f"{self.__msg}Starting testing loop")
         total_mse = 0
         for i, test_sample in enumerate(test):
             how_much_to_give = len(test_sample) // 2
@@ -127,7 +132,7 @@ class TestBench:
             out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
             mse_here = (np.square(out_should_be - returned_ts_as_np_array)).mean()
             total_mse += mse_here
-        print(f"Done with metric='{metric}', app='{metric}', the sum of the mse over the test batch is = {total_mse}.")
+        print(f"{self.__msg}Done with metric='{metric}', app='{metric}', the sum of the mse over the test batch is = {total_mse}.")
 
     """
     *******************************************************************************************************************
@@ -136,14 +141,14 @@ class TestBench:
     """
 
     def run_training_and_tests(self):
-        print("Powering on test bench")
+        print(f"{self.__msg}Powering on test bench")
         for metric, app in self.__metrics_and_apps_to_test:
-            print(f"testing metric='{metric}', app='{metric}'.")
+            print(f"{self.__msg}testing metric='{metric}', app='{metric}'.")
             self.__do_one_test(
                 metric=metric,
                 app=app,
             )
-        print("Powering off test bench")
+        print(f"{self.__msg}Powering off test bench")
 
 
 """
