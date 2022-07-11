@@ -132,7 +132,7 @@ class TestBench:
             out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
             mse_here = (np.square(out_should_be - returned_ts_as_np_array)).mean()
             total_mse += mse_here
-        print(f"{self.__msg}Done with metric='{metric}', app='{metric}', the sum of the mse over the test set is = {total_mse}.")
+        print(f"{self.__msg}Done with metric='{metric}', app='{metric}', the average mse over the test set is = {total_mse/len(test)}.")
 
     """
     *******************************************************************************************************************

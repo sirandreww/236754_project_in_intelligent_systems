@@ -37,12 +37,12 @@ class TimeSeriesDataSet:
     *******************************************************************************************************************
     """
 
-    def __get_combined_dataset(self):
+    def __get_mean_and_std(self):
         np_array_list = []
         for df in self:
             np_array_list += [df["sample"].to_numpy()]
         flat_np_array = np.concatenate(np_array_list)
-        return flat_np_array
+        return flat_np_array.mean(), flat_np_array.std()
 
     """
     *******************************************************************************************************************
@@ -87,9 +87,8 @@ class TimeSeriesDataSet:
     def scale_data(self):
         assert not self.__is_data_scaled
         self.__is_data_scaled = True
-        np_array = self.__get_combined_dataset()
-        self.__mean = np_array.mean()
-        self.__std = np_array.std()
+        self.__mean, self.__std = self.__get_mean_and_std()
+        # print(f"self.__mean = {self.__mean}, self.__std = {self.__std}", )
         # print("max_sample = ", max_sample, " min_sample = ", min_sample)
         for df in self:
             standardized_sample_column = (df["sample"] - self.__mean) / self.__std
