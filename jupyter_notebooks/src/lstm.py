@@ -134,7 +134,7 @@ class LSTMTester:
             if os.path.exists(path):
                 assert not is_loaded
                 self.model.load_state_dict(torch.load(f"{path}lstm.pt"))
-                model.eval()
+                self.model.eval()
                 is_loaded = True
         assert is_loaded
 
@@ -243,6 +243,7 @@ class LSTMTester:
 
     def learn_from_data_set(self, training_data_set):
         if self.__does_save_exist():
+            print("Loading model instead of training because lstm.pt exists")
             self.__load_model()
         else:
             self.__do_training(training_data_set=training_data_set)
