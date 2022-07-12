@@ -37,7 +37,7 @@ class ExtractTensorAfterLSTM(nn.Module):
         # assert torch.equal(h_n, out)
         # Reshape shape (batch, hidden)
         # return tensor[:, -1, :]
-        return out
+        return out[:, -1, :]
 
 
 """
@@ -48,11 +48,11 @@ class ExtractTensorAfterLSTM(nn.Module):
 
 
 class LSTMPredictor(nn.Module):
-    def __init__(self, hidden_size=64, num_layers=5):
+    def __init__(self, input_size, output_size, hidden_size=64, num_layers=5):
         super(LSTMPredictor, self).__init__()
         self.model = nn.Sequential(
             nn.LSTM(
-                input_size=1,
+                input_size=input_size,
                 hidden_size=hidden_size,
                 num_layers=num_layers,
                 batch_first=True,
@@ -67,20 +67,30 @@ class LSTMPredictor(nn.Module):
             nn.ReLU(),
             nn.Linear(
                 in_features=hidden_size,
-                out_features=1
+                out_features=output_size
             )
         )
+        self.output_size = output_size
 
-    def forward(self, x, future=0):
+    def forward(self, x, future=None):
+        if future is None:
+            future = self.output_size
+        outs = []
         out = None
-        for i in range(future + 1):
+        for i in range(future - self.output_size + 1):
             out = self.model(x)
-            last_sample_in_each_series = out[:, -1, None, :]
-            assert last_sample_in_each_series.shape == (x.size(0), 1, x.size(2))
-            next_x = torch.cat((x, last_sample_in_each_series), dim=1)
+            last_sample_in_each_series_shaped_like_out = out[:, -1, None]
+            outs += [last_sample_in_each_series_shaped_like_out]
+            last_sample_in_each_series_shaped_like_x = out[:, -1, None, None]
+            assert last_sample_in_each_series_shaped_like_x.shape == (x.size(0), 1, x.size(2))
+            next_x = torch.cat((x, last_sample_in_each_series_shaped_like_x), dim=1)
             x = next_x
-        return out
-
+        if future == self.output_size:
+            return out
+        else:
+            outs_as_tensor = torch.cat(outs[:-1], dim=1)
+            result = torch.cat((outs_as_tensor, out), dim=1)
+            return result
 
 """
 ***********************************************************************************************************************
@@ -91,20 +101,19 @@ class LSTMPredictor(nn.Module):
 
 class LSTMTester:
     def __init__(self):
-        self.model = LSTMPredictor()
-        print(self.model)
-        self.pad = -2
-        print("pad =", self.pad)
-        self.batch_size = 32
-        print("batch_size =", self.batch_size)
-        self.num_epochs = 100
-        print("num_epochs =", self.num_epochs)
-        self.learning_rate = 0.002
-        print("learning_rate =", self.learning_rate)
-        self.criterion = nn.MSELoss(reduction='none')
-        print("criterion =", self.criterion)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        print("optimizer =", self.optimizer)
+        self._msg = "[LSTM]"
+        self.model = None
+        # self.pad = -2
+        # print(self._msg, f"pad = {self.pad}")
+        self.batch_size = 128
+        print(self._msg, f"batch_size =", self.batch_size)
+        self.num_epochs = 30
+        print(self._msg, f"num_epochs =", self.num_epochs)
+        self.learning_rate = 0.0001
+        print(self._msg, f"learning_rate =", self.learning_rate)
+        # self.criterion = nn.MSELoss(reduction='none')
+        self.criterion = nn.MSELoss()
+        print(self._msg, f"criterion =", self.criterion)
 
     @staticmethod
     def __torch_from_numpy(array):
@@ -126,7 +135,9 @@ class LSTMTester:
 
     @staticmethod
     def __does_save_exist():
-        return os.path.exists(f"./models/lstm.pt") or os.path.exists(f"../models/lstm.pt")
+        # TODO: change this
+        # return os.path.exists(f"./models/lstm.pt") or os.path.exists(f"../models/lstm.pt")
+        return False
 
     def __load_model(self):
         is_loaded = False
@@ -138,49 +149,60 @@ class LSTMTester:
                 is_loaded = True
         assert is_loaded
 
-    def __partition_list_to_batches(self, list_of_np_array):
-        random.shuffle(list_of_np_array)
-        num_batches = math.ceil(len(list_of_np_array) / self.batch_size)
+    def __partition_list_to_batches(self, list_of_something):
+        random.shuffle(list_of_something)
+        num_batches = math.ceil(len(list_of_something) / self.batch_size)
         result = [
-            list_of_np_array[i * self.batch_size: (i + 1) * self.batch_size]
+            list_of_something[i * self.batch_size: (i + 1) * self.batch_size]
             for i in range(num_batches)
         ]
         return result
 
-    def __prepare_batch(self, batch_as_list):
-        max_length = max([len(arr) for arr in batch_as_list])
-        padded_batch_as_list_of_np = [
-            np.concatenate(
-                (
-                    arr,
-                    np.full((max_length - len(arr),), self.pad)
-                )
-            )
-            for arr in batch_as_list
+    def __turn_np_array_into_list_of_samples(self, np_array, input_size, output_size):
+        list_of_input_output = [
+            (np_array[i: input_size + i], np_array[input_size + i: output_size + input_size + i])
+            for i in range(len(np_array) - input_size - output_size + 1)
         ]
-        batch_as_list_of_tensors = [
-            Variable(self.__torch_from_numpy(arr)[:, None]) for arr in padded_batch_as_list_of_np
+        list_of_input_output_tensors = [
+            (Variable(self.__torch_from_numpy(a)[:, None]), Variable(self.__torch_from_numpy(b)))
+            for a, b in list_of_input_output
         ]
-        batch_tensor = Variable(torch.stack(batch_as_list_of_tensors))
-        predict_length = 0
-        train_input = batch_tensor[:, :-1]
-        train_target = batch_tensor[:, 1:]
-        true_if_pad = (train_target == self.pad)
-        false_if_pad = (train_target != self.pad)
-        return train_input, train_target, true_if_pad, false_if_pad, predict_length
+        return list_of_input_output_tensors
+
+    @staticmethod
+    def __combine_batches(batches):
+        combined_batches = []
+        for batch in batches:
+            # TODO: stack
+            batch_in = [tup[0] for tup in batch]
+            batch_out = [tup[1] for tup in batch]
+            combined_batches += [(torch.stack(batch_in), torch.stack(batch_out))]
+        return combined_batches
 
     def __list_of_np_array_to_list_of_batch(self, list_of_np_array):
-        batches = self.__partition_list_to_batches(
-            list_of_np_array=list_of_np_array
+        min_length = min([len(arr) for arr in list_of_np_array])
+        input_size = min_length // 2
+        output_size = min_length - input_size
+        self.__make_model_using_smallest_time_series_size(
+            input_size=1,
+            output_size=output_size
         )
-        result = []
-        for batch in batches:
-            b = self.__prepare_batch(batch_as_list=batch)
-            result += [b]
-        return result
+        list_of_samples = []
+        for np_arr in list_of_np_array:
+            list_of_samples += self.__turn_np_array_into_list_of_samples(
+                np_array=np_arr,
+                input_size=input_size,
+                output_size=output_size
+            )
+        print(self._msg, f"Length of list_of_samples = ", len(list_of_samples))
+        batches = self.__partition_list_to_batches(
+            list_of_something=list_of_samples
+        )
+        combined = self.__combine_batches(batches=batches)
+        return combined
 
     def __plot_prediction_of_random_sample(self, training_data_set):
-        print("Plotting prediction for some random sample in the test set.")
+        print(self._msg, f"Plotting prediction for some random sample in the test set.")
         test_sample = random.choice([ts for ts in training_data_set])
         how_much_to_give = len(test_sample) // 2
         how_much_to_predict = len(test_sample) - how_much_to_give
@@ -194,15 +216,13 @@ class LSTMTester:
         )
         out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
         mse_here = (np.square(out_should_be - returned_ts_as_np_array)).mean()
-        print(f"MSE of this prediction is: {mse_here}")
+        print(self._msg, f"MSE of this prediction is: {mse_here}")
 
     def __do_batch(self, batch_data):
-        (train_input, train_target, true_if_pad, false_if_pad, predict_length) = batch_data
+        (train_input, train_target) = batch_data
         self.optimizer.zero_grad()
-        out = self.model.forward(train_input, future=predict_length)
-        loss_array = self.criterion(out, train_target)
-        loss_array[true_if_pad] = 0
-        loss = loss_array.sum() / false_if_pad.sum()
+        out = self.model.forward(train_input)
+        loss = self.criterion(out, train_target)
         loss.backward()
         self.optimizer.step()
         return loss.item()
@@ -212,13 +232,22 @@ class LSTMTester:
         for i, batch_data in enumerate(list_of_batch):
             # print(f"Batch {i+1} / {len(list_of_batch)}")
             loss = self.__do_batch(batch_data=batch_data)
-            print(f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
+            print(self._msg, f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
             sum_of_losses += loss
         # choose random sample and plot
         self.__plot_prediction_of_random_sample(training_data_set=training_data_set)
         if epoch_num % 10 == 0:
             self.__save_model()
         return sum_of_losses
+
+    def __make_model_using_smallest_time_series_size(self, input_size, output_size):
+        self.model = LSTMPredictor(
+            input_size=input_size,
+            output_size=output_size
+        )
+        print(self._msg, f"model = {self.model}")
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        print(self._msg, f"optimizer =", self.optimizer)
 
     def __do_training(self, training_data_set):
         list_of_np_array = self.__get_data_as_list_of_np_arrays(
@@ -229,7 +258,7 @@ class LSTMTester:
         )
         epoch_time = 0
         for e in range(self.num_epochs):
-            print(f"Epoch {e + 1} / {self.num_epochs}. Last epoch time was {epoch_time}")
+            print(self._msg, f"Epoch {e + 1} / {self.num_epochs}. Last epoch time was {epoch_time}")
             epoch_start_time = time.time()
             sum_of_losses = self.__do_epoch(
                 epoch_num=e,
@@ -239,11 +268,11 @@ class LSTMTester:
             epoch_stop_time = time.time()
             epoch_time = epoch_stop_time - epoch_start_time
             avg_loss = sum_of_losses / len(list_of_batch)
-            print(f"************************ Average loss for the batches in the epoch: {avg_loss}")
+            print(self._msg, f"************************ Average loss for the batches in the epoch: {avg_loss}")
 
     def learn_from_data_set(self, training_data_set):
         if self.__does_save_exist():
-            print("Loading model instead of training because lstm.pt exists")
+            print(self._msg, f"Loading model instead of training because lstm.pt exists")
             self.__load_model()
         else:
             self.__do_training(training_data_set=training_data_set)
@@ -253,9 +282,9 @@ class LSTMTester:
             ts_as_np = ts_as_df_start["sample"].to_numpy()
             ts_as_tensor = self.__torch_from_numpy(ts_as_np)
             prediction = self.model.forward(ts_as_tensor[None, :, None], future=how_much_to_predict)
-            prediction_flattened = prediction.view(len(ts_as_np) + how_much_to_predict)
+            prediction_flattened = prediction.view(how_much_to_predict)
             y = prediction_flattened.detach().numpy()
-            res = np.float64(y[-how_much_to_predict:])
+            res = np.float64(y)
             assert isinstance(res, np.ndarray)
             assert len(res) == how_much_to_predict
             assert res.shape == (how_much_to_predict,)
@@ -273,7 +302,11 @@ class LSTMTester:
 def main():
     tb = test_bench.TestBench(
         class_to_test=LSTMTester,
-        metrics_and_apps_to_test=[("node_mem", "moc/smaug")]
+        path_to_data="../data/",
+        tests_to_perform=[
+            {"metric": "node_mem", "app": "moc/smaug", "test percentage": 0.2, "sub sample rate": 5,
+             "data length limit": 20},
+        ]
     )
     tb.run_training_and_tests()
 
