@@ -60,7 +60,7 @@ class TestBench:
                  "data length limit": 20},
                 {"metric": "container_mem", "app": "coredns", "test percentage": 0.2, "sub sample rate": 5,
                  "data length limit": 20},
-                {"metric": "container_mem", "app": "whereabouts-cni-bincopy", "test percentage": 0.2, "sub sample rate": 5,
+                {"metric": "container_mem", "app": "keepalived", "test percentage": 0.2, "sub sample rate": 5,
                  "data length limit": 20},
                 # container cpu
                 {"metric": "container_cpu", "app": "kube-rbac-proxy", "test percentage": 0.2, "sub sample rate": 5,
