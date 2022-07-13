@@ -100,6 +100,7 @@ class LSTMTester:
         self.criterion = nn.MSELoss(reduction='none')
         print(self._msg, f"criterion =", self.criterion)
         self.sample_multiplier = 8
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # Number of samples we will learn with is 1 + 2 + 3 + ... + self.sample_multiplier
         # Because each time series will be split in half to input and output.
         # print(self._msg, f"number of sample we s =", self.criterion)
@@ -170,8 +171,12 @@ class LSTMTester:
             # TODO: stack
             batch_in = [tup[0] for tup in batch]
             batch_out = [tup[1] for tup in batch]
-            batch_in_tensor = torch.nn.utils.rnn.pad_sequence(batch_in, batch_first=True, padding_value=self.padding)
-            batch_out_tensor = torch.nn.utils.rnn.pad_sequence(batch_out, batch_first=True, padding_value=self.padding)
+            batch_in_tensor = torch.nn.utils.rnn.pad_sequence(
+                batch_in, batch_first=True, padding_value=self.padding
+            ).to_device(self.device)
+            batch_out_tensor = torch.nn.utils.rnn.pad_sequence(
+                batch_out, batch_first=True, padding_value=self.padding
+            ).to_device(self.device)
             true_if_pad = (batch_out_tensor == self.padding)
             false_if_pad = (batch_out_tensor != self.padding)
             predict_length = batch_out_tensor.size(1)
@@ -236,7 +241,7 @@ class LSTMTester:
             input_size=input_size,
             output_size=output_size,
             hidden_size=output_size
-        )
+        ).to(self.device)
         print(self._msg, f"model = {self.model}")
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         print(self._msg, f"optimizer =", self.optimizer)
