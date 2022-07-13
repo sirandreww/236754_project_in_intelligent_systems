@@ -48,7 +48,7 @@ class ExtractTensorAfterLSTM(nn.Module):
 
 
 class LSTMPredictor(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size=64, num_layers=5):
+    def __init__(self, input_size, output_size, hidden_size=128, num_layers=1):
         super(LSTMPredictor, self).__init__()
         self.model = nn.Sequential(
             nn.LSTM(
@@ -59,12 +59,12 @@ class LSTMPredictor(nn.Module):
                 dropout=0.1,
             ),
             ExtractTensorAfterLSTM(),
-            nn.ReLU(),
-            nn.Linear(
-                in_features=hidden_size,
-                out_features=hidden_size
-            ),
-            nn.ReLU(),
+            # nn.ReLU(),
+            # nn.Linear(
+            #     in_features=hidden_size,
+            #     out_features=hidden_size
+            # ),
+            # nn.ReLU(),
             nn.Linear(
                 in_features=hidden_size,
                 out_features=output_size
@@ -72,25 +72,10 @@ class LSTMPredictor(nn.Module):
         )
         self.output_size = output_size
 
-    def forward(self, x, future=None):
-        if future is None:
-            future = self.output_size
-        outs = []
-        out = None
-        for i in range(future - self.output_size + 1):
-            out = self.model(x)
-            last_sample_in_each_series_shaped_like_out = out[:, -1, None]
-            outs += [last_sample_in_each_series_shaped_like_out]
-            last_sample_in_each_series_shaped_like_x = out[:, -1, None, None]
-            assert last_sample_in_each_series_shaped_like_x.shape == (x.size(0), 1, x.size(2))
-            next_x = torch.cat((x, last_sample_in_each_series_shaped_like_x), dim=1)
-            x = next_x
-        if future == self.output_size:
-            return out
-        else:
-            outs_as_tensor = torch.cat(outs[:-1], dim=1)
-            result = torch.cat((outs_as_tensor, out), dim=1)
-            return result
+    def forward(self, x, future):
+        out = self.model(x)
+        return out[:, :future]
+
 
 """
 ***********************************************************************************************************************
@@ -103,17 +88,21 @@ class LSTMTester:
     def __init__(self):
         self._msg = "[LSTM]"
         self.model = None
-        # self.pad = -2
-        # print(self._msg, f"pad = {self.pad}")
+        self.padding = -10
+        print(self._msg, f"padding = {self.padding}")
         self.batch_size = 128
         print(self._msg, f"batch_size =", self.batch_size)
-        self.num_epochs = 30
+        self.num_epochs = 10
         print(self._msg, f"num_epochs =", self.num_epochs)
-        self.learning_rate = 0.0001
+        self.learning_rate = 0.01
         print(self._msg, f"learning_rate =", self.learning_rate)
         # self.criterion = nn.MSELoss(reduction='none')
-        self.criterion = nn.MSELoss()
+        self.criterion = nn.MSELoss(reduction='none')
         print(self._msg, f"criterion =", self.criterion)
+        self.sample_multiplier = 8
+        # Number of samples we will learn with is 1 + 2 + 3 + ... + self.sample_multiplier
+        # Because each time series will be split in half to input and output.
+        # print(self._msg, f"number of sample we s =", self.criterion)
 
     @staticmethod
     def __torch_from_numpy(array):
@@ -158,41 +147,42 @@ class LSTMTester:
         ]
         return result
 
-    def __turn_np_array_into_list_of_samples(self, np_array, input_size, output_size):
-        list_of_input_output = [
-            (np_array[i: input_size + i], np_array[input_size + i: output_size + input_size + i])
-            for i in range(len(np_array) - input_size - output_size + 1)
-        ]
+    def __turn_np_array_into_list_of_samples(self, np_array):
+        input_size = len(np_array) // 2
+        output_size = len(np_array) - input_size
+        list_of_input_output = []
+        for k in range(self.sample_multiplier):
+            list_of_input_output += [
+                (np_array[i: input_size + i], np_array[input_size + i: output_size + input_size + i])
+                for i in range(len(np_array) - input_size - output_size + 1)
+            ]
+            input_size -= (k + 1) % 2
+            output_size -= k % 2
         list_of_input_output_tensors = [
             (Variable(self.__torch_from_numpy(a)[:, None]), Variable(self.__torch_from_numpy(b)))
             for a, b in list_of_input_output
         ]
         return list_of_input_output_tensors
 
-    @staticmethod
-    def __combine_batches(batches):
+    def __combine_batches(self, batches):
         combined_batches = []
         for batch in batches:
             # TODO: stack
             batch_in = [tup[0] for tup in batch]
             batch_out = [tup[1] for tup in batch]
-            combined_batches += [(torch.stack(batch_in), torch.stack(batch_out))]
+            batch_in_tensor = torch.nn.utils.rnn.pad_sequence(batch_in, batch_first=True, padding_value=self.padding)
+            batch_out_tensor = torch.nn.utils.rnn.pad_sequence(batch_out, batch_first=True, padding_value=self.padding)
+            true_if_pad = (batch_out_tensor == self.padding)
+            false_if_pad = (batch_out_tensor != self.padding)
+            predict_length = batch_out_tensor.size(1)
+            combined_batches += [(batch_in_tensor, batch_out_tensor, true_if_pad, false_if_pad, predict_length)]
         return combined_batches
 
     def __list_of_np_array_to_list_of_batch(self, list_of_np_array):
-        min_length = min([len(arr) for arr in list_of_np_array])
-        input_size = min_length // 2
-        output_size = min_length - input_size
-        self.__make_model_using_smallest_time_series_size(
-            input_size=1,
-            output_size=output_size
-        )
         list_of_samples = []
         for np_arr in list_of_np_array:
             list_of_samples += self.__turn_np_array_into_list_of_samples(
                 np_array=np_arr,
-                input_size=input_size,
-                output_size=output_size
             )
         print(self._msg, f"Length of list_of_samples = ", len(list_of_samples))
         batches = self.__partition_list_to_batches(
@@ -219,10 +209,12 @@ class LSTMTester:
         print(self._msg, f"MSE of this prediction is: {mse_here}")
 
     def __do_batch(self, batch_data):
-        (train_input, train_target) = batch_data
+        train_input, train_target, true_if_pad, false_if_pad, predict_length = batch_data
         self.optimizer.zero_grad()
-        out = self.model.forward(train_input)
-        loss = self.criterion(out, train_target)
+        out = self.model.forward(x=train_input, future=predict_length)
+        loss_array = self.criterion(out, train_target)
+        loss_array[true_if_pad] = 0
+        loss = loss_array.sum() / false_if_pad.sum()
         loss.backward()
         self.optimizer.step()
         return loss.item()
@@ -230,7 +222,6 @@ class LSTMTester:
     def __do_epoch(self, epoch_num, list_of_batch, training_data_set):
         sum_of_losses = 0
         for i, batch_data in enumerate(list_of_batch):
-            # print(f"Batch {i+1} / {len(list_of_batch)}")
             loss = self.__do_batch(batch_data=batch_data)
             print(self._msg, f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
             sum_of_losses += loss
@@ -240,10 +231,11 @@ class LSTMTester:
             self.__save_model()
         return sum_of_losses
 
-    def __make_model_using_smallest_time_series_size(self, input_size, output_size):
+    def __make_model_and_optimizer(self, input_size, output_size):
         self.model = LSTMPredictor(
             input_size=input_size,
-            output_size=output_size
+            output_size=output_size,
+            hidden_size=output_size
         )
         print(self._msg, f"model = {self.model}")
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
@@ -252,6 +244,10 @@ class LSTMTester:
     def __do_training(self, training_data_set):
         list_of_np_array = self.__get_data_as_list_of_np_arrays(
             training_data_set=training_data_set,
+        )
+        self.__make_model_and_optimizer(
+            input_size=1,
+            output_size=max([len(arr) for arr in list_of_np_array]) // 2 + 10
         )
         list_of_batch = self.__list_of_np_array_to_list_of_batch(
             list_of_np_array=list_of_np_array
