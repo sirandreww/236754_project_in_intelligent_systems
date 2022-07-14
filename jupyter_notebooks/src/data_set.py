@@ -38,6 +38,10 @@ class TimeSeriesDataSet:
     """
 
     def __get_mean_and_std(self):
+        """
+        calculates mean and std of all samples
+        @return: mean and std of all samples (type np_array)
+        """
         np_array_list = []
         for df in self:
             np_array_list += [df["sample"].to_numpy()]
@@ -219,7 +223,7 @@ def get_amount_of_data_per_application(metric, path_to_data):
 
 def main():
     print("Start.")
-    test = 1
+    test = 0
     if test == 0:
         print("Getting DataSet.")
         dataset = get_data_set(
@@ -234,7 +238,7 @@ def main():
         print("Plotting.")
         dataset.plot_dataset(number_of_samples=10)
         print("Normalizing.")
-        dataset.normalize_data()
+        dataset.scale_data()
         print("Plotting.")
         dataset.plot_dataset(number_of_samples=10)
         print("Splitting.")
