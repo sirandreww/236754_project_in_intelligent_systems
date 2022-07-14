@@ -153,7 +153,7 @@ def __get_names_of_json_files_in_directory(directory_path):
 
 def __get_names_of_relevant_files(metric, path_to_data):
     """
-    find the metrics from each json file in the directory. 
+    find the metrics from each json file in the directory.
     @param metric: specified metric to get : "container_cpu", "container_mem", "node_mem"
     @param path_to_data: the path to the directory
     @return: a list of the metrics that were specified from each json file in the directory specified
@@ -165,11 +165,23 @@ def __get_names_of_relevant_files(metric, path_to_data):
 
 
 def __get_app_name_from_key(key: str):
+    """
+
+    @param key: column from the original data indicating name and other properties
+    @return: the name of the app
+    """
     app_name = key.split(", ")[0]
     return app_name
 
 
 def __get_data_as_list_of_df_from_file(data_dict, application_name):
+    """
+    given data dictionary and an application name, appends all of the data that is associated with the application name
+    to create a list and returns it
+    @param data_dict: dictionary of data
+    @param application_name:
+    @return: time series of a specified application name from a data dictionary
+    """
     result_list = []
     relevant_keys = [k for k in data_dict.keys() if (application_name == __get_app_name_from_key(key=k))]
     for k in relevant_keys:
@@ -191,6 +203,13 @@ def __get_data_as_list_of_df_from_file(data_dict, application_name):
 
 
 def __get_data_as_list_of_df(metric, application_name, path_to_data):
+    """
+
+    @param metric:
+    @param application_name:
+    @param path_to_data:
+    @return:
+    """
     file_names = __get_names_of_relevant_files(metric=metric, path_to_data=path_to_data)
     result_list = []
     for file_name in file_names:
