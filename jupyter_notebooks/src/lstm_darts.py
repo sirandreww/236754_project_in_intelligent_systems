@@ -35,37 +35,13 @@ class DartsLSTMTester:
             torch_metrics=MeanAbsolutePercentageError(),
             pl_trainer_kwargs=pl_trainer_kwargs
         )
-        self.__msg = "[DartsLSTMTester]"
-        # # print
-        # print(self.__msg, f"model = {self.driver.model}")
-        # print(self.__msg, f"learning_rate =", learning_rate)
-        # print(self.__msg, f"optimizer =", self.driver.optimizer)
-        # print(self.__msg, f"batch_size =", self.driver.batch_size)
-        # print(self.__msg, f"padding = {self.driver.padding}")
-        # print(self.__msg, f"num_epochs =", self.driver.num_epochs)
-
-    """
-    *******************************************************************************************************************
-        API functions
-    *******************************************************************************************************************
-    """
-
-    @staticmethod
-    def __get_data_as_list_of_np_arrays(training_data_set):
-        training_data_set_as_list_of_np = [ts_as_df["sample"].to_numpy() for ts_as_df in training_data_set]
-        return training_data_set_as_list_of_np
 
     def learn_from_data_set(self, training_data_set):
-        list_of_np_array = self.__get_data_as_list_of_np_arrays(
-            training_data_set=training_data_set,
-        )
+        list_of_np_array = [ts_as_df["sample"].to_numpy() for ts_as_df in training_data_set]
         list_of_series = [
             darts.timeseries.TimeSeries.from_values(arr)
             for arr in list_of_np_array
         ]
-        # t_size = int(len(list_of_series) * 0.9)
-        # train = list_of_series[:t_size]
-        # val = list_of_series[t_size:]
         self.model.fit(list_of_series)
 
     def predict(self, ts_as_df_start, how_much_to_predict):

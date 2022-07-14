@@ -82,7 +82,7 @@ class LSTMPredictor(nn.Module):
 
 
 class PytorchLSTMTester:
-    def __init__(self, longest_length_to_predict):
+    def __init__(self, longest_length_to_predict, shortest_input):
         # prepare parameters
         self.__msg = "[PytorchLSTMTester]"
         self.driver = pytorch_driver_for_test_bench.PytorchTester()
@@ -95,7 +95,7 @@ class PytorchLSTMTester:
         self.driver.batch_size = 64
         self.driver.padding = -99999
         self.driver.num_epochs = 8
-        self.driver.sample_multiplier = 10  # Number of samples we will learn with is 1+2+3+ ... +sample_multiplier
+        self.driver.sample_multiplier = 1  # Number of samples we will learn with is 1+2+3+ ... +sample_multiplier
         # To understand why look at its use
         # print
         print(self.__msg, f"model = {self.driver.model}")

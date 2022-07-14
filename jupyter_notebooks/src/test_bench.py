@@ -27,8 +27,8 @@ def plot_result(original, prediction_as_np_array):
     x_axis = [time for time in original["time"]]
     original_as_series.index = x_axis
     predicted_as_series.index = x_axis[-len(prediction_as_np_array):]
-    ax = original_as_series.plot()
-    predicted_as_series.plot(ax=ax)
+    ax = original_as_series.plot(color="b")
+    predicted_as_series.plot(ax=ax, color="orange")
     plt.show()
 
 
@@ -88,6 +88,12 @@ class TestBench:
     *******************************************************************************************************************
     """
 
+    @staticmethod
+    def __calculate_mase(y_pred, y_true):
+        mean_absolute_error_of_prediction = np.abs(y_true - y_pred).mean()
+        mean_absolute_error_of_naive = np.abs(y_true[1:] - y_true[:-1]).mean()
+        return mean_absolute_error_of_prediction / mean_absolute_error_of_naive
+
     def __get_data(self, dictionary):
         metric = dictionary["metric"]
         app = dictionary["app"]
@@ -112,7 +118,7 @@ class TestBench:
         return train, test
 
     @staticmethod
-    def __get_mse_precision_recall_and_f1(original_np, predicted_np):
+    def __get_mse_precision_recall_f1_and_mase(original_np, predicted_np):
         assert len(original_np) == len(predicted_np)
         mse_here = (np.square(original_np - predicted_np)).mean()
         actual_positives = [original_np[i + 1] >= original_np[i] for i in range(len(original_np) - 1)]
@@ -133,7 +139,8 @@ class TestBench:
         precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive != 0) else 0
         recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative != 0) else 0
         f1 = (2 * precision * recall) / (precision + recall) if (precision + recall != 0) else 0
-        return mse_here, precision, recall, f1
+        mase = TestBench.__calculate_mase(y_pred=original_np, y_true=predicted_np)
+        return mse_here, precision, recall, f1, mase
 
     @staticmethod
     def __get_amount_to_predict(test_sample):
@@ -160,12 +167,12 @@ class TestBench:
                 prediction_as_np_array=returned_ts_as_np_array,
             )
         out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
-        mse_here, precision, recall, f1 = self.__get_mse_precision_recall_and_f1(
+        mse_here, precision, recall, f1, mase = self.__get_mse_precision_recall_f1_and_mase(
             original_np=out_should_be, predicted_np=returned_ts_as_np_array
         )
-        return mse_here, precision, recall, f1
+        return mse_here, precision, recall, f1, mase
 
-    def __print_report(self, metric, app, mse, precision, recall, f1, training_time):
+    def __print_report(self, metric, app, mse, precision, recall, f1, training_time, mase):
         print(self.__msg, f"***********************************************************************")
         print(self.__msg, f"REPORT for                              metric='{metric}', app='{app}':")
         print(self.__msg, f"Training time in seconds is             {training_time}")
@@ -173,6 +180,7 @@ class TestBench:
         print(self.__msg, f"Average precision over the test set is  {precision}")
         print(self.__msg, f"Average recall over the test set is     {recall}")
         print(self.__msg, f"Average F1 over the test set is         {f1}")
+        print(self.__msg, f"Average MASE over the test set is       {mase}")
         print(self.__msg, f"***********************************************************************")
 
     def __test_model_and_print_report(self, test, model, metric, app, training_time):
@@ -180,19 +188,27 @@ class TestBench:
         total_precision = 0
         total_recall = 0
         total_f1 = 0
+        total_mase = 0
         for i, test_sample in enumerate(test):
-            mse_here, precision, recall, f1 = self.__give_one_test_to_model(
+            mse_here, precision, recall, f1, mase = self.__give_one_test_to_model(
                 test_sample=test_sample, model=model, should_print=(i < 10)
             )
             total_mse += mse_here
             total_precision += precision
             total_recall += recall
             total_f1 += f1
-        mse, precision, recall, f1 = total_mse / len(test), total_precision / len(test), total_recall / len(
-            test), total_f1 / len(test)
-        self.__print_report(metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1, training_time=training_time)
+            total_mase += mase
+        mse = total_mse / len(test)
+        precision = total_precision / len(test)
+        recall = total_recall / len(test)
+        f1 = total_f1 / len(test)
+        mase = total_mase / len(test)
+        self.__print_report(
+            metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
+            training_time=training_time, mase=mase
+        )
         print(self.__msg, f"Done with metric='{metric}', app='{app}'")
-        return mse, precision, recall, f1, training_time
+        return mse, precision, recall, f1, training_time, mase
 
     def __get_longest_length_to_predict(self, train, test):
         longest_length_to_predict = max(
@@ -241,12 +257,16 @@ class TestBench:
             app = dictionary["app"]
             metric = dictionary["metric"]
             print(self.__msg, f"testing metric='{metric}', app='{app}'.")
-            mse, precision, recall, f1, training_time = self.__do_one_test(dictionary=dictionary)
-            full_report += [(mse, precision, recall, f1, training_time)]
+            mse, precision, recall, f1, training_time, mase = self.__do_one_test(dictionary=dictionary)
+            full_report += [(mse, precision, recall, f1, training_time, mase)]
         assert len(full_report) == len(self.__tests_to_perform)
-        for dictionary, (mse, precision, recall, f1, training_time) in zip(self.__tests_to_perform, full_report):
+        # plot results
+        for dictionary, (mse, precision, recall, f1, training_time, mase) in zip(self.__tests_to_perform, full_report):
             app, metric = dictionary["app"], dictionary["metric"]
-            self.__print_report(metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1, training_time=training_time)
+            self.__print_report(
+                metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
+                training_time=training_time, mase=mase
+            )
         print(self.__msg, "Powering off test bench")
 
 
