@@ -80,6 +80,10 @@ class TimeSeriesDataSet:
         self.__list_of_df = new_list_of_df
 
     def plot_dataset(self, number_of_samples):
+        """
+        randomly selects samples from the data sets and plots . x-axis is time and y-axis is the value
+        @param number_of_samples: number of randomly selected samples
+        """
         samples = random.sample(self.__list_of_df, k=number_of_samples)
         for df in samples:
             # plt.close("all")
@@ -89,6 +93,10 @@ class TimeSeriesDataSet:
             plt.show()
 
     def scale_data(self):
+        """
+        scales the entire data set.
+        each sample is standarized (value - mean / std)
+        """
         assert not self.__is_data_scaled
         self.__is_data_scaled = True
         self.__mean, self.__std = self.__get_mean_and_std()
@@ -124,6 +132,7 @@ class TimeSeriesDataSet:
 
 
 def __get_names_of_json_files_in_directory(directory_path):
+
     csv_names = [f for f in listdir(directory_path) if (isfile(join(directory_path, f)) and ("json" in f))]
     return csv_names
 
