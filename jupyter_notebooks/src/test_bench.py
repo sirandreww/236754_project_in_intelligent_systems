@@ -52,23 +52,23 @@ class TestBench:
             tests_to_perform=[
                 # node mem
                 {"metric": "node_mem", "app": "moc/smaug", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 20},
+                 "data length limit": 100},
                 {"metric": "node_mem", "app": "emea/balrog", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 20},
+                 "data length limit": 100},
                 # container mem
                 {"metric": "container_mem", "app": "nmstate-handler", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 20},
+                 "data length limit": 100},
                 {"metric": "container_mem", "app": "coredns", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 20},
+                 "data length limit": 100},
                 {"metric": "container_mem", "app": "keepalived", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 20},
+                 "data length limit": 100},
                 # container cpu
                 {"metric": "container_cpu", "app": "kube-rbac-proxy", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 20},
+                 "data length limit": 100},
                 {"metric": "container_cpu", "app": "dns", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 20},
+                 "data length limit": 100},
                 {"metric": "container_cpu", "app": "collector", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 20},
+                 "data length limit": 100},
             ],
     ):
         self.__class_to_test = class_to_test
@@ -135,9 +135,15 @@ class TestBench:
         f1 = (2 * precision * recall) / (precision + recall) if (precision + recall != 0) else 0
         return mse_here, precision, recall, f1
 
-    def __give_one_test_to_model(self, test_sample, model, should_print):
+    @staticmethod
+    def __get_amount_to_predict(test_sample):
         how_much_to_give = len(test_sample) // 2
         how_much_to_predict = len(test_sample) - how_much_to_give
+        return how_much_to_predict
+
+    def __give_one_test_to_model(self, test_sample, model, should_print):
+        how_much_to_predict = self.__get_amount_to_predict(test_sample=test_sample)
+        how_much_to_give = len(test_sample) - how_much_to_predict
         returned_ts_as_np_array = model.predict(
             ts_as_df_start=test_sample[: how_much_to_give],
             how_much_to_predict=how_much_to_predict
@@ -188,12 +194,20 @@ class TestBench:
         print(self.__msg, f"Done with metric='{metric}', app='{app}'")
         return mse, precision, recall, f1, training_time
 
+    def __get_longest_length_to_predict(self, train, test):
+        longest_length_to_predict = max(
+            [self.__get_amount_to_predict(arr) for arr in train] +
+            [self.__get_amount_to_predict(arr) for arr in test]
+        )
+        return longest_length_to_predict
+
     def __do_one_test(self, dictionary):
         metric, app = dictionary["metric"], dictionary["app"]
         print(self.__msg, f"Fetching data for metric='{metric}', app='{app}'.")
         train, test = self.__get_data(dictionary=dictionary)
         print(self.__msg, "Making an instance of the class we want to test")
-        model = self.__class_to_test()
+        longest_length_to_predict = self.__get_longest_length_to_predict(train=train, test=test)
+        model = self.__class_to_test(longest_length_to_predict=longest_length_to_predict)
         print(self.__msg, "Starting training loop")
         training_start_time = time.time()
         model.learn_from_data_set(training_data_set=train)
@@ -233,7 +247,7 @@ class TestBench:
 
 def main():
     class DumbPredictor:
-        def __init__(self):
+        def __init__(self, longest_length_to_predict):
             print("Constructor called.")
 
         def learn_from_data_set(self, training_data_set):
