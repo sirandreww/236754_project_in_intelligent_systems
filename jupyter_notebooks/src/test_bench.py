@@ -159,16 +159,17 @@ class TestBench:
         )
         return mse_here, precision, recall, f1
 
-    def __print_report(self, metric, app, mse, precision, recall, f1):
+    def __print_report(self, metric, app, mse, precision, recall, f1, training_time):
         print(self.__msg, f"***********************************************************************")
         print(self.__msg, f"REPORT for                              metric='{metric}', app='{app}':")
+        print(self.__msg, f"Training time in seconds is             {training_time}")
         print(self.__msg, f"Average mse over the test set is        {mse}")
         print(self.__msg, f"Average precision over the test set is  {precision}")
         print(self.__msg, f"Average recall over the test set is     {recall}")
         print(self.__msg, f"Average F1 over the test set is         {f1}")
         print(self.__msg, f"***********************************************************************")
 
-    def __test_model_and_print_report(self, test, model, metric, app):
+    def __test_model_and_print_report(self, test, model, metric, app, training_time):
         total_mse = 0
         total_precision = 0
         total_recall = 0
@@ -183,9 +184,9 @@ class TestBench:
             total_f1 += f1
         mse, precision, recall, f1 = total_mse / len(test), total_precision / len(test), total_recall / len(
             test), total_f1 / len(test)
-        self.__print_report(metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1)
+        self.__print_report(metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1, training_time=training_time)
         print(self.__msg, f"Done with metric='{metric}', app='{app}'")
-        return mse, precision, recall, f1
+        return mse, precision, recall, f1, training_time
 
     def __do_one_test(self, dictionary):
         metric, app = dictionary["metric"], dictionary["app"]
@@ -199,7 +200,7 @@ class TestBench:
         training_stop_time = time.time()
         print(self.__msg, f"Training took {training_stop_time - training_start_time} seconds.")
         print(self.__msg, "Starting testing loop")
-        return self.__test_model_and_print_report(test=test, model=model, metric=metric, app=app)
+        return self.__test_model_and_print_report(test=test, model=model, metric=metric, app=app, training_time=training_stop_time-training_start_time)
 
     """
     *******************************************************************************************************************
@@ -214,12 +215,12 @@ class TestBench:
             app = dictionary["app"]
             metric = dictionary["metric"]
             print(self.__msg, f"testing metric='{metric}', app='{app}'.")
-            mse, precision, recall, f1 = self.__do_one_test(dictionary=dictionary)
-            full_report += [(mse, precision, recall, f1)]
+            mse, precision, recall, f1, training_time = self.__do_one_test(dictionary=dictionary)
+            full_report += [(mse, precision, recall, f1, training_time)]
         assert len(full_report) == len(self.__tests_to_perform)
-        for dictionary, (mse, precision, recall, f1) in zip(self.__tests_to_perform, full_report):
+        for dictionary, (mse, precision, recall, f1, training_time) in zip(self.__tests_to_perform, full_report):
             app, metric = dictionary["app"], dictionary["metric"]
-            self.__print_report(metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1)
+            self.__print_report(metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1, training_time=training_time)
         print(self.__msg, "Powering off test bench")
 
 

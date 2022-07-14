@@ -60,10 +60,10 @@ class LSTMPredictor(nn.Module):
             ),
             ExtractTensorAfterLSTM(),
             # nn.ReLU(),
-            # nn.Linear(
-            #     in_features=hidden_size,
-            #     out_features=hidden_size
-            # ),
+            nn.Linear(
+                in_features=hidden_size,
+                out_features=hidden_size
+            ),
             # nn.ReLU(),
             nn.Linear(
                 in_features=hidden_size,
@@ -90,16 +90,16 @@ class LSTMTester:
         self.model = None
         self.padding = -10
         print(self._msg, f"padding = {self.padding}")
-        self.batch_size = 128
+        self.batch_size = 64
         print(self._msg, f"batch_size =", self.batch_size)
-        self.num_epochs = 10
+        self.num_epochs = 20
         print(self._msg, f"num_epochs =", self.num_epochs)
-        self.learning_rate = 0.01
+        self.learning_rate = 0.001
         print(self._msg, f"learning_rate =", self.learning_rate)
         # self.criterion = nn.MSELoss(reduction='none')
         self.criterion = nn.MSELoss(reduction='none')
         print(self._msg, f"criterion =", self.criterion)
-        self.sample_multiplier = 8
+        self.sample_multiplier = 10
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # Number of samples we will learn with is 1 + 2 + 3 + ... + self.sample_multiplier
         # Because each time series will be split in half to input and output.
@@ -173,10 +173,10 @@ class LSTMTester:
             batch_out = [tup[1] for tup in batch]
             batch_in_tensor = torch.nn.utils.rnn.pad_sequence(
                 batch_in, batch_first=True, padding_value=self.padding
-            ).to_device(self.device)
+            ).to(device=self.device)
             batch_out_tensor = torch.nn.utils.rnn.pad_sequence(
                 batch_out, batch_first=True, padding_value=self.padding
-            ).to_device(self.device)
+            ).to(device=self.device)
             true_if_pad = (batch_out_tensor == self.padding)
             false_if_pad = (batch_out_tensor != self.padding)
             predict_length = batch_out_tensor.size(1)
@@ -228,7 +228,7 @@ class LSTMTester:
         sum_of_losses = 0
         for i, batch_data in enumerate(list_of_batch):
             loss = self.__do_batch(batch_data=batch_data)
-            print(self._msg, f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
+#             print(self._msg, f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
             sum_of_losses += loss
         # choose random sample and plot
         self.__plot_prediction_of_random_sample(training_data_set=training_data_set)
@@ -282,8 +282,8 @@ class LSTMTester:
         with torch.no_grad():
             ts_as_np = ts_as_df_start["sample"].to_numpy()
             ts_as_tensor = self.__torch_from_numpy(ts_as_np)
-            prediction = self.model.forward(ts_as_tensor[None, :, None], future=how_much_to_predict)
-            prediction_flattened = prediction.view(how_much_to_predict)
+            prediction = self.model.forward(ts_as_tensor[None, :, None].to(device=self.device), future=how_much_to_predict)
+            prediction_flattened = prediction.view(how_much_to_predict).cpu()
             y = prediction_flattened.detach().numpy()
             res = np.float64(y)
             assert isinstance(res, np.ndarray)
