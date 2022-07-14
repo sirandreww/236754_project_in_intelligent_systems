@@ -153,7 +153,7 @@ class TestBench:
         assert len(returned_ts_as_np_array) == how_much_to_predict
         assert returned_ts_as_np_array.shape == (how_much_to_predict,)
         assert returned_ts_as_np_array.dtype == np.float64
-        # plot only first 10 results
+        # plot if needed
         if should_print:
             plot_result(
                 original=test_sample,
@@ -201,13 +201,25 @@ class TestBench:
         )
         return longest_length_to_predict
 
+    def __get_shortest_input(self, train, test):
+        shortest_input = min(
+            [len(arr) - self.__get_amount_to_predict(arr) for arr in train] +
+            [len(arr) - self.__get_amount_to_predict(arr) for arr in test]
+        )
+        return shortest_input
+
+    def __get_model(self, train, test):
+        longest_length_to_predict = self.__get_longest_length_to_predict(train=train, test=test)
+        shortest_input = self.__get_shortest_input(train=train, test=test)
+        model = self.__class_to_test(longest_length_to_predict=longest_length_to_predict, shortest_input=shortest_input)
+        return model
+
     def __do_one_test(self, dictionary):
         metric, app = dictionary["metric"], dictionary["app"]
         print(self.__msg, f"Fetching data for metric='{metric}', app='{app}'.")
         train, test = self.__get_data(dictionary=dictionary)
         print(self.__msg, "Making an instance of the class we want to test")
-        longest_length_to_predict = self.__get_longest_length_to_predict(train=train, test=test)
-        model = self.__class_to_test(longest_length_to_predict=longest_length_to_predict)
+        model = self.__get_model(train=train, test=test)
         print(self.__msg, "Starting training loop")
         training_start_time = time.time()
         model.learn_from_data_set(training_data_set=train)
@@ -247,7 +259,7 @@ class TestBench:
 
 def main():
     class DumbPredictor:
-        def __init__(self, longest_length_to_predict):
+        def __init__(self, longest_length_to_predict, shortest_input):
             print("Constructor called.")
 
         def learn_from_data_set(self, training_data_set):

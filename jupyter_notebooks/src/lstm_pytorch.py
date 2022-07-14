@@ -81,10 +81,10 @@ class LSTMPredictor(nn.Module):
 """
 
 
-class LSTMTester:
+class PytorchLSTMTester:
     def __init__(self, longest_length_to_predict):
         # prepare parameters
-        self.__msg = "[LSTMTester]"
+        self.__msg = "[PytorchLSTMTester]"
         self.driver = pytorch_driver_for_test_bench.PytorchTester()
         self.driver.model = LSTMPredictor(
             input_size=1,
@@ -94,7 +94,7 @@ class LSTMTester:
         self.driver.optimizer = optim.Adam(self.driver.model.parameters(), lr=learning_rate)
         self.driver.batch_size = 64
         self.driver.padding = -99999
-        self.driver.num_epochs = 20
+        self.driver.num_epochs = 8
         self.driver.sample_multiplier = 10  # Number of samples we will learn with is 1+2+3+ ... +sample_multiplier
         # To understand why look at its use
         # print
@@ -127,7 +127,7 @@ class LSTMTester:
 
 def main():
     tb = test_bench.TestBench(
-        class_to_test=LSTMTester,
+        class_to_test=PytorchLSTMTester,
         path_to_data="../data/",
         tests_to_perform=[
             {"metric": "node_mem", "app": "moc/smaug", "test percentage": 0.2, "sub sample rate": 5,

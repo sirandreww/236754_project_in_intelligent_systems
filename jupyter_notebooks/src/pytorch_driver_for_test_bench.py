@@ -142,7 +142,7 @@ class PytorchTester:
         sum_of_losses = 0
         for i, batch_data in enumerate(list_of_batch):
             loss = self.__do_batch(batch_data=batch_data)
-            print(self.__msg, f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
+            # print(self.__msg, f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
             sum_of_losses += loss
         # choose random sample and plot
         self.__plot_prediction_of_random_sample(training_data_set=training_data_set)
