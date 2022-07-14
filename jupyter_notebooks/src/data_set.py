@@ -152,6 +152,12 @@ def __get_names_of_json_files_in_directory(directory_path):
 
 
 def __get_names_of_relevant_files(metric, path_to_data):
+    """
+    find the metrics from each json file in the directory. 
+    @param metric: specified metric to get : "container_cpu", "container_mem", "node_mem"
+    @param path_to_data: the path to the directory
+    @return: a list of the metrics that were specified from each json file in the directory specified
+    """
     list_of_files = __get_names_of_json_files_in_directory(path_to_data)
     relevant_files = [file for file in list_of_files if (metric in file)]
     relevant_files.sort()
