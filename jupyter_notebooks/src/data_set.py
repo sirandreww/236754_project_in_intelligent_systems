@@ -61,6 +61,11 @@ class TimeSeriesDataSet:
         return len(self.__list_of_df)
 
     def sub_sample_data(self, sub_sample_rate):
+        """
+        creates sub sampling according to the rate (if for example rate = 5, then every 5 samples, the one with the
+        maximal value is chosen to be in the data set).
+        @param sub_sample_rate:
+        """
         new_list_of_df = []
 
         for df in self:
