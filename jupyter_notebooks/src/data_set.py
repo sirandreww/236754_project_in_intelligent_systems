@@ -132,7 +132,11 @@ class TimeSeriesDataSet:
 
 
 def __get_names_of_json_files_in_directory(directory_path):
-
+    """
+    returns the names of the json files in the directory (specified by the param "directory_path"
+    @param directory_path: the name of the directory
+    @return: the names of json files in directory 
+    """
     csv_names = [f for f in listdir(directory_path) if (isfile(join(directory_path, f)) and ("json" in f))]
     return csv_names
 
