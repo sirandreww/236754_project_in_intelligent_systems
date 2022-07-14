@@ -153,10 +153,10 @@ def __get_names_of_json_files_in_directory(directory_path):
 
 def __get_names_of_relevant_files(metric, path_to_data):
     """
-    find the metrics from each json file in the directory.
+    find the names of files that contain a specified metric in the directory.
     @param metric: specified metric to get : "container_cpu", "container_mem", "node_mem"
     @param path_to_data: the path to the directory
-    @return: a list of the metrics that were specified from each json file in the directory specified
+    @return: a list of the files that contain the specified specified from each json file in the directory specified
     """
     list_of_files = __get_names_of_json_files_in_directory(path_to_data)
     relevant_files = [file for file in list_of_files if (metric in file)]
@@ -204,11 +204,11 @@ def __get_data_as_list_of_df_from_file(data_dict, application_name):
 
 def __get_data_as_list_of_df(metric, application_name, path_to_data):
     """
-
-    @param metric:
-    @param application_name:
-    @param path_to_data:
-    @return:
+    @param metric: specified metric to get : "container_cpu", "container_mem", "node_mem"
+    @param application_name: application name
+    @param path_to_data: directory of json files
+    @return: a list of the metric data of a specified app from all the json files in the directory (found by
+    path_to_data)
     """
     file_names = __get_names_of_relevant_files(metric=metric, path_to_data=path_to_data)
     result_list = []
@@ -223,6 +223,13 @@ def __get_data_as_list_of_df(metric, application_name, path_to_data):
 
 
 def get_data_set(metric, application_name, path_to_data):
+    """
+
+    @param metric: specified metric to get : "container_cpu", "container_mem", "node_mem"
+    @param application_name: application name
+    @param path_to_data: directory of json files
+    @return: a TimeSeriesDataSet according to an app with a specified metric.
+    """
     # constants
     __supported_metrics = ["container_cpu", "container_mem", "node_mem"]
 
@@ -240,6 +247,11 @@ def get_data_set(metric, application_name, path_to_data):
 
 
 def get_amount_of_data_per_application(metric, path_to_data):
+    """
+    @param metric: specified metric to get : "container_cpu", "container_mem", "node_mem"
+    @param path_to_data: directory of json files
+    @return: a sorted list of amount of data per each app that has a specific metric in a specified file
+    """
     __supported_metrics = ["container_cpu", "container_mem", "node_mem"]
     assert metric in __supported_metrics
     file_names = __get_names_of_relevant_files(metric=metric, path_to_data=path_to_data)
