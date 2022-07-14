@@ -224,10 +224,15 @@ class TestBench:
         )
         return shortest_input
 
-    def __get_model(self, train, test):
+    def __get_model(self, train, test, metric, app):
         longest_length_to_predict = self.__get_longest_length_to_predict(train=train, test=test)
         shortest_input = self.__get_shortest_input(train=train, test=test)
-        model = self.__class_to_test(longest_length_to_predict=longest_length_to_predict, shortest_input=shortest_input)
+        model = self.__class_to_test(
+            longest_length_to_predict=longest_length_to_predict,
+            shortest_input=shortest_input,
+            metric=metric,
+            app=app
+        )
         return model
 
     def __do_one_test(self, dictionary):
@@ -235,7 +240,7 @@ class TestBench:
         print(self.__msg, f"Fetching data for metric='{metric}', app='{app}'.")
         train, test = self.__get_data(dictionary=dictionary)
         print(self.__msg, "Making an instance of the class we want to test")
-        model = self.__get_model(train=train, test=test)
+        model = self.__get_model(train=train, test=test, metric=metric, app=app)
         print(self.__msg, "Starting training loop")
         training_start_time = time.time()
         model.learn_from_data_set(training_data_set=train)
@@ -279,16 +284,28 @@ class TestBench:
 
 def main():
     class DumbPredictor:
-        def __init__(self, longest_length_to_predict, shortest_input):
+        def __init__(self, longest_length_to_predict, shortest_input, metric, app):
             print("Constructor called.")
+            self.print_once = True
 
         def learn_from_data_set(self, training_data_set):
             print("Training started.")
+            print("What does a dataframe to learn on look like?")
+            # display(training_data_set[0])
             print("Training ending.")
 
         def predict(self, ts_as_df_start, how_much_to_predict):
+            if self.print_once:
+                self.print_once = False
+                # print("What does a dataframe to predict look like?")
+                # display(ts_as_df_start)
             ts_as_np = ts_as_df_start["sample"].to_numpy()
             res = np.resize(ts_as_np, how_much_to_predict)
+            # these checks will also be done by the testbench
+            assert isinstance(res, np.ndarray)
+            assert len(res) == how_much_to_predict
+            assert res.shape == (how_much_to_predict,)
+            assert res.dtype == np.float64
             return res
 
     tester = TestBench(

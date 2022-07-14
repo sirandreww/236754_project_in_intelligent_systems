@@ -82,7 +82,7 @@ class LSTMPredictor(nn.Module):
 
 
 class PytorchLSTMTester:
-    def __init__(self, longest_length_to_predict, shortest_input):
+    def __init__(self, longest_length_to_predict, shortest_input, metric, app):
         # prepare parameters
         self.__msg = "[PytorchLSTMTester]"
         self.driver = pytorch_driver_for_test_bench.PytorchTester()
