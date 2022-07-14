@@ -21,6 +21,39 @@ import os
 
 class DartsLSTMTester:
     def __init__(self, longest_length_to_predict, shortest_input, metric, app):
+        self.__msg = "[DartsLSTMTester]"
+        # Hyper-Parameters found using 'find_best_hyper_parameters'
+        self.batch_size = 128
+        self.dropout = 0.09178031780349825
+        self.hidden_size = 128
+        self.n_rnn_layers = 1
+        self.optimizer_kwargs = {'lr': 0.01}
+        self.is_hyper_parameter_search_required = True
+        if (metric, app) == ('node_mem', 'moc/smaug'):
+            self.batch_size = 128
+            self.dropout = 0.09178031780349825
+            self.hidden_size = 128
+            self.n_rnn_layers = 1
+            self.optimizer_kwargs = {'lr': 0.01}
+            self.is_hyper_parameter_search_required = True  # TODO: change this
+        elif (metric, app) == ('node_mem', 'emea/balrog'):
+            pass
+            # self.batch_size =
+            # self.dropout =
+            # self.hidden_size =
+            # self.n_rnn_layers =
+            # self.optimizer_kwargs = {'lr': }
+            # self.is_hyper_parameter_search_required = False
+        elif (metric, app) == ('', ''):
+            pass
+            # self.batch_size =
+            # self.dropout =
+            # self.hidden_size =
+            # self.n_rnn_layers =
+            # self.optimizer_kwargs = {'lr': }
+            # self.is_hyper_parameter_search_required = False
+        if not self.is_hyper_parameter_search_required:
+            print(self.__msg, f"Hyper-Parameters loaded for metric='{metric}' and app='{app}'")
         # Early stop callback
         my_stopper = EarlyStopping(
             monitor="train_MeanAbsolutePercentageError",  # "val_loss",
@@ -35,7 +68,12 @@ class DartsLSTMTester:
             output_chunk_length=shortest_input,
             n_epochs=500,
             torch_metrics=MeanAbsolutePercentageError(),
-            pl_trainer_kwargs=pl_trainer_kwargs
+            pl_trainer_kwargs=pl_trainer_kwargs,
+            batch_size=self.batch_size,
+            dropout=self.dropout,
+            hidden_size=self.hidden_size,
+            n_rnn_layers=self.n_rnn_layers,
+            optimizer_kwargs=self.optimizer_kwargs
         )
         self.shortest_input = shortest_input
 
@@ -45,7 +83,8 @@ class DartsLSTMTester:
             darts.timeseries.TimeSeries.from_values(arr)
             for arr in list_of_np_array
         ]
-        self.find_best_hyper_parameters(list_of_series=list_of_series)
+        if self.is_hyper_parameter_search_required:
+            self.find_best_hyper_parameters(list_of_series=list_of_series)
         self.model.fit(list_of_series)
         # os.system("cls")
 
@@ -74,14 +113,16 @@ class DartsLSTMTester:
         from ray.tune import CLIReporter
         from ray.tune.integration.pytorch_lightning import TuneReportCallback
         from ray.tune.schedulers import ASHAScheduler
+        import random
         os.environ["RAY_DEBUG_DISABLE_MEMORY_MONITOR"] = str(1)
 
         def train_model(model_args, callbacks, train, val):
             torch_metrics = MetricCollection([MeanAbsolutePercentageError(), MeanAbsoluteError()])
             # Create the model using model_args from Ray Tune
-            model = NBEATSModel(
-                input_chunk_length=24,
-                output_chunk_length=12,
+            model = BlockRNNModel(
+                model="LSTM",
+                input_chunk_length=self.shortest_input,
+                output_chunk_length=self.shortest_input,
                 n_epochs=500,
                 torch_metrics=torch_metrics,
                 pl_trainer_kwargs={"callbacks": callbacks, "enable_progress_bar": False},
@@ -118,10 +159,11 @@ class DartsLSTMTester:
 
         # define the hyperparameter space
         config = {
-            "batch_size": tune.choice([16, 32, 64, 128]),
-            "num_blocks": tune.choice([1, 2, 3, 4, 5]),
-            "num_stacks": tune.choice([32, 64, 128]),
-            "dropout": tune.uniform(0, 0.2),
+            "batch_size": tune.choice([i for i in range(100, 200)]),
+            "dropout": tune.uniform(0, 0.1),
+            "hidden_size": tune.choice([i for i in range(100, 200)]),
+            "n_rnn_layers": tune.choice([1, 2]),
+            "optimizer_kwargs": tune.choice([{"lr": 0.1 / i} for i in range(1, 100)])
         }
 
         reporter = CLIReporter(
