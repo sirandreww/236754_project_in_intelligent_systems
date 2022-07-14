@@ -71,6 +71,11 @@ class TimeSeriesDataSet:
         self.__list_of_df = new_list_of_df
 
     def filter_data_that_is_too_short(self, data_length_limit):
+        """
+        filters the data samples. all data samples that have a length that is lower than data_length_limit will be
+        removed from the dataset
+        @param data_length_limit: minimal length of sample
+        """
         new_list_of_df = []
 
         for df in self:
@@ -108,6 +113,11 @@ class TimeSeriesDataSet:
             df["sample"] = standardized_sample_column
 
     def split_to_train_and_test(self, test_percentage):
+        """
+        according to an input ,test percentage , we split the entire data set to train set and test set.
+        @param test_percentage: the percentage of samples from the data set to be included in the test set.
+        @return: train data set and test data set with sizes according to the input percentage.
+        """
         assert 0 < test_percentage < 1
         test_size = int(len(self) * test_percentage)
         random.shuffle(self.__list_of_df)
