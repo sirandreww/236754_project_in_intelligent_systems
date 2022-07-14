@@ -63,6 +63,7 @@ class DartsLSTMTester:
     """
 
     def find_best_hyper_parameters(self, list_of_series):
+        os.environ["RAY_DEBUG_DISABLE_MEMORY_MONITOR"] = str(1)
         from darts.models import NBEATSModel
         from darts.datasets import AirPassengersDataset
         from pytorch_lightning.callbacks import EarlyStopping
@@ -73,6 +74,7 @@ class DartsLSTMTester:
         from ray.tune import CLIReporter
         from ray.tune.integration.pytorch_lightning import TuneReportCallback
         from ray.tune.schedulers import ASHAScheduler
+        os.environ["RAY_DEBUG_DISABLE_MEMORY_MONITOR"] = str(1)
 
         def train_model(model_args, callbacks, train, val):
             torch_metrics = MetricCollection([MeanAbsolutePercentageError(), MeanAbsoluteError()])
@@ -90,17 +92,12 @@ class DartsLSTMTester:
                 val_series=val,
             )
 
-        # Read data:
-        series = AirPassengersDataset().load()
+        os.environ["RAY_DEBUG_DISABLE_MEMORY_MONITOR"] = str(1)
 
-        # Create training and validation sets:
-        train, val = series.split_after(pd.Timestamp(year=1957, month=12, day=1))
-
-        # Normalize the time series (note: we avoid fitting the transformer on the validation set)
-        transformer = Scaler()
-        transformer.fit(train)
-        train = transformer.transform(train)
-        val = transformer.transform(val)
+        random.shuffle(list_of_series)
+        train_size = int(len(list_of_series) * 0.9)
+        train = list_of_series[:train_size]
+        val = list_of_series[train_size:]
 
         # Early stop callback
         my_stopper = EarlyStopping(
@@ -132,8 +129,8 @@ class DartsLSTMTester:
             metric_columns=["loss", "MAPE", "training_iteration"],
         )
 
-        resources_per_trial = {"cpu": 8, "gpu": 1}
-        # resources_per_trial = {"cpu": 6}
+        # resources_per_trial = {"cpu": 8, "gpu": 1}
+        resources_per_trial = {"cpu": 1}
 
         # the number of combinations to try
         num_samples = 10
