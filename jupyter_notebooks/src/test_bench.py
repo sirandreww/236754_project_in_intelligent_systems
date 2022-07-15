@@ -168,6 +168,13 @@ class TestBench:
         return how_much_to_predict
 
     def __give_one_test_to_model(self, test_sample, model, should_print):
+        """
+
+        @param test_sample:  test sample
+        @param model: the model we're training
+        @param should_print: true if we want to plot
+        @return: mse, precision, recall, f1, mase of the test sample
+        """
         how_much_to_predict = self.__get_amount_to_predict(test_sample=test_sample)
         how_much_to_give = len(test_sample) - how_much_to_predict
         returned_ts_as_np_array = model.predict(
@@ -192,6 +199,17 @@ class TestBench:
         return mse_here, precision, recall, f1, mase
 
     def __print_report(self, metric, app, mse, precision, recall, f1, training_time, mase):
+        """
+        prints the following parameters
+        @param metric:
+        @param app:
+        @param mse:
+        @param precision:
+        @param recall:
+        @param f1:
+        @param training_time:
+        @param mase:
+        """
         print(self.__msg, f"***********************************************************************")
         print(self.__msg, f"REPORT for                              metric='{metric}', app='{app}':")
         print(self.__msg, f"Training time in seconds is             {training_time}")
@@ -203,6 +221,15 @@ class TestBench:
         print(self.__msg, f"***********************************************************************")
 
     def __test_model_and_print_report(self, test, model, metric, app, training_time):
+        """
+
+        @param test:
+        @param model:
+        @param metric:
+        @param app:
+        @param training_time:
+        @return:
+        """
         total_mse = 0
         total_precision = 0
         total_recall = 0
