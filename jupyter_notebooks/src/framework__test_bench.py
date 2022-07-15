@@ -112,12 +112,12 @@ class TestBench:
         print(self.__msg, "Splitting data into train and test")
         train, test = dataset.split_to_train_and_test(length_to_predict=self.length_to_predict)
         assert len(train) == len(test)
-        assert min(len(df) for df in (train + test)) >= dl_limit
+        assert min([len(df) for df in train] + [len(df) for df in test]) >= (dl_limit - self.length_to_predict)
         print(self.__msg, f"Amount of train/test data is {len(train)}")
         return train, test
 
     def __get_model(self, metric, app, train, test):
-        length_of_shortest_time_series = min(len(df) for df in (train + test))
+        length_of_shortest_time_series = min([len(df) for df in train] + [len(df) for df in test])
         model = self.__class_to_test(
             length_of_shortest_time_series=length_of_shortest_time_series,
             metric=metric,
@@ -261,7 +261,7 @@ class TestBench:
         print(self.__msg, f"Fetching data for metric='{metric}', app='{app}'.")
         train, test = self.__get_data(dictionary=dictionary)
         print(self.__msg, "Making an instance of the class we want to test")
-        model = self.__get_model(metric=metric, app=app)
+        model = self.__get_model(metric=metric, app=app, train=train, test=test)
         print(self.__msg, "Starting training loop")
         training_start_time = time.time()
         model.learn_from_data_set(training_data_set=train)
