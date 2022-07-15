@@ -12,7 +12,7 @@ import copy
 from torch.autograd import Variable
 import random
 import math
-import test_bench
+import framework__test_bench
 import time
 import os
 
@@ -34,9 +34,10 @@ class PytorchTester:
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = None
         self.optimizer = None
-        self.batch_size = None
-        self.padding = None
-        self.num_epochs = None
+        self.batch_size = 64
+        self.padding = -99999
+        self.num_epochs = 8
+        self.sample_multiplier = 1  # Number of samples we will learn with is 1+2+3+ ... +sample_multiplier
 
     """
     *******************************************************************************************************************
