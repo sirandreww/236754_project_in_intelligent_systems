@@ -4,12 +4,9 @@
 ***********************************************************************************************************************
 """
 
-import matplotlib
-# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from multiprocessing import Process
 import time
 
 from data_set import get_data_set
@@ -49,27 +46,27 @@ class TestBench:
             self,
             class_to_test,
             path_to_data,
-            tests_to_perform=[
+            tests_to_perform=(
                 # node mem
-                {"metric": "node_mem", "app": "moc/smaug", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 100},
-                {"metric": "node_mem", "app": "emea/balrog", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 100},
+                {"metric": "node_mem", "app": "moc/smaug", "test percentage": 0.2, "sub sample rate": 60,
+                 "data length limit": 24},
+                {"metric": "node_mem", "app": "emea/balrog", "test percentage": 0.2, "sub sample rate": 60,
+                 "data length limit": 24},
                 # container mem
-                {"metric": "container_mem", "app": "nmstate-handler", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 100},
-                {"metric": "container_mem", "app": "coredns", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 100},
-                {"metric": "container_mem", "app": "keepalived", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 100},
+                {"metric": "container_mem", "app": "nmstate-handler", "test percentage": 0.2, "sub sample rate": 60,
+                 "data length limit": 24},
+                {"metric": "container_mem", "app": "coredns", "test percentage": 0.2, "sub sample rate": 60,
+                 "data length limit": 24},
+                {"metric": "container_mem", "app": "keepalived", "test percentage": 0.2, "sub sample rate": 60,
+                 "data length limit": 24},
                 # container cpu
-                {"metric": "container_cpu", "app": "kube-rbac-proxy", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 100},
-                {"metric": "container_cpu", "app": "dns", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 100},
-                {"metric": "container_cpu", "app": "collector", "test percentage": 0.2, "sub sample rate": 5,
-                 "data length limit": 100},
-            ],
+                {"metric": "container_cpu", "app": "kube-rbac-proxy", "test percentage": 0.2, "sub sample rate": 60,
+                 "data length limit": 24},
+                {"metric": "container_cpu", "app": "dns", "test percentage": 0.2, "sub sample rate": 60,
+                 "data length limit": 24},
+                {"metric": "container_cpu", "app": "collector", "test percentage": 0.2, "sub sample rate": 60,
+                 "data length limit": 24},
+            ),
     ):
         self.__class_to_test = class_to_test
         self.__path_to_data = path_to_data
@@ -116,7 +113,7 @@ class TestBench:
         )
         print(self.__msg, f"Subsampling data from 1 sample per 1 minute to 1 sample per {ss_rate} minutes.")
         dataset.sub_sample_data(sub_sample_rate=ss_rate)
-        print(self.__msg, f"Throwing out data that is less than {dl_limit * ss_rate} minutes long.")
+        print(self.__msg, f"Throwing out data that is less than {dl_limit * ss_rate / 60} hours long.")
         dataset.filter_data_that_is_too_short(data_length_limit=dl_limit)
         print(self.__msg, "Scaling data.")
         dataset.scale_data()

@@ -9,6 +9,7 @@ from darts.models import BlockRNNModel
 import test_bench
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
+import numpy as np
 import os
 
 
@@ -30,13 +31,52 @@ class DartsLSTMTester:
         self.optimizer_kwargs = {'lr': 0.01}
         self.is_hyper_parameter_search_required = True
         if (metric, app) == ('node_mem', 'moc/smaug'):
-            self.batch_size = 128
-            self.dropout = 0.09178031780349825
-            self.hidden_size = 128
+            self.batch_size = 122
+            self.dropout = 0.0360867
+            self.hidden_size = 124
             self.n_rnn_layers = 1
-            self.optimizer_kwargs = {'lr': 0.01}
-            self.is_hyper_parameter_search_required = True  # TODO: change this
+            self.optimizer_kwargs = {'lr': 0.0018867924528301887}
+            self.is_hyper_parameter_search_required = False
         elif (metric, app) == ('node_mem', 'emea/balrog'):
+            self.batch_size = 172
+            self.dropout = 0.07170659341411438
+            self.hidden_size = 110
+            self.n_rnn_layers = 1
+            self.optimizer_kwargs = {'lr': 0.006666666666666667}
+            self.is_hyper_parameter_search_required = False
+        elif (metric, app) == ('', ''):
+            pass
+            # self.batch_size =
+            # self.dropout =
+            # self.hidden_size =
+            # self.n_rnn_layers =
+            # self.optimizer_kwargs = {'lr': }
+            # self.is_hyper_parameter_search_required = False
+        elif (metric, app) == ('', ''):
+            pass
+            # self.batch_size =
+            # self.dropout =
+            # self.hidden_size =
+            # self.n_rnn_layers =
+            # self.optimizer_kwargs = {'lr': }
+            # self.is_hyper_parameter_search_required = False
+        elif (metric, app) == ('', ''):
+            pass
+            # self.batch_size =
+            # self.dropout =
+            # self.hidden_size =
+            # self.n_rnn_layers =
+            # self.optimizer_kwargs = {'lr': }
+            # self.is_hyper_parameter_search_required = False
+        elif (metric, app) == ('', ''):
+            pass
+            # self.batch_size =
+            # self.dropout =
+            # self.hidden_size =
+            # self.n_rnn_layers =
+            # self.optimizer_kwargs = {'lr': }
+            # self.is_hyper_parameter_search_required = False
+        elif (metric, app) == ('', ''):
             pass
             # self.batch_size =
             # self.dropout =
@@ -151,7 +191,7 @@ class DartsLSTMTester:
         # set up ray tune callback
         tune_callback = TuneReportCallback(
             {
-                "loss": "val_Loss",
+                "MAE": "val_MeanAbsoluteError",
                 "MAPE": "val_MeanAbsolutePercentageError",
             },
             on="validation_end",
@@ -163,7 +203,7 @@ class DartsLSTMTester:
             "dropout": tune.uniform(0, 0.1),
             "hidden_size": tune.choice([i for i in range(100, 200)]),
             "n_rnn_layers": tune.choice([1, 2]),
-            "optimizer_kwargs": tune.choice([{"lr": 0.1 / i} for i in range(1, 100)])
+            "optimizer_kwargs": tune.choice([{"lr": i} for i in np.arange(0.0001, 0.01, 0.0001)])
         }
 
         reporter = CLIReporter(
