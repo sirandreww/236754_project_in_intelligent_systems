@@ -222,13 +222,13 @@ class TestBench:
 
     def __test_model_and_print_report(self, test, model, metric, app, training_time):
         """
-
-        @param test:
-        @param model:
-        @param metric:
-        @param app:
-        @param training_time:
-        @return:
+        predicts according to the samples given in test
+        @param test: a list of test samples
+        @param model: the model we're training
+        @param metric: specified metric
+        @param app: app name
+        @param training_time: time it took to train model
+        @return: mse, precision, recall, f1, training_time, mase of the results
         """
         total_mse = 0
         total_precision = 0
@@ -257,6 +257,12 @@ class TestBench:
         return mse, precision, recall, f1, training_time, mase
 
     def __get_longest_length_to_predict(self, train, test):
+        """
+
+        @param train: train set
+        @param test: train set
+        @return: the longest length of prediction that we should output ever given the test and train sets
+        """
         longest_length_to_predict = max(
             [self.__get_amount_to_predict(arr) for arr in train] +
             [self.__get_amount_to_predict(arr) for arr in test]
