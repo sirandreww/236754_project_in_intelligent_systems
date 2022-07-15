@@ -35,9 +35,9 @@ class DartsLSTMTester:
 
         # Early stop callback
         my_stopper = EarlyStopping(
-            monitor="train_MeanAbsolutePercentageError",  # "val_loss",
-            patience=5,
-            min_delta=0.001,
+            monitor="train_MeanAbsolutePercentageError",
+            patience=50,
+            min_delta=0.000001,
             mode='min',
         )
         pl_trainer_kwargs = {"callbacks": [my_stopper]}
@@ -49,7 +49,7 @@ class DartsLSTMTester:
             model="LSTM",
             hidden_dim=100,
             n_rnn_layers=1,
-            dropout=0.025,
+            dropout=0.0,
             training_length=24,
             # shared for all models
             output_chunk_length=1,

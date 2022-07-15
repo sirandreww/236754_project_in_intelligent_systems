@@ -143,6 +143,11 @@ class TestBench:
         return mean_absolute_error_of_prediction / mean_absolute_error_of_naive
 
     @staticmethod
+    def __calculate_mape(Y_actual, Y_Predicted):
+        mape = np.mean(np.abs((Y_actual - Y_Predicted) / Y_actual)) * 100
+        return mape
+
+    @staticmethod
     def __get_mse_precision_recall_f1_and_mase(original_np, predicted_np):
         """
         @param original_np: true values
@@ -171,8 +176,10 @@ class TestBench:
         recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative != 0) else 0
         f1 = (2 * precision * recall) / (precision + recall) if (precision + recall != 0) else 0
 
-        mase = TestBench.__calculate_mase(y_pred=original_np, y_true=predicted_np)
-        return mse_here, precision, recall, f1, mase
+        mase = TestBench.__calculate_mase(y_pred=predicted_np, y_true=original_np)
+        mape = TestBench.__calculate_mape(Y_Predicted=predicted_np, Y_actual=original_np)
+
+        return mse_here, precision, recall, f1, mase, mape
 
     def __give_one_test_to_model(self, test_sample, model, should_print):
         """
@@ -201,12 +208,12 @@ class TestBench:
                 prediction_as_np_array=returned_ts_as_np_array,
             )
         out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
-        mse_here, precision, recall, f1, mase = self.__get_mse_precision_recall_f1_and_mase(
+        mse_here, precision, recall, f1, mase, mape = self.__get_mse_precision_recall_f1_and_mase(
             original_np=out_should_be, predicted_np=returned_ts_as_np_array
         )
-        return mse_here, precision, recall, f1, mase
+        return mse_here, precision, recall, f1, mase, mape
 
-    def __print_report(self, metric, app, mse, precision, recall, f1, training_time, mase):
+    def __print_report(self, metric, app, mse, precision, recall, f1, training_time, mase, mape):
         """
         prints the following parameters
         @param metric:
@@ -226,6 +233,7 @@ class TestBench:
         print(self.__msg, f"Average recall over the test set is     {recall}")
         print(self.__msg, f"Average F1 over the test set is         {f1}")
         print(self.__msg, f"Average MASE over the test set is       {mase}")
+        print(self.__msg, f"Average MAPE over the test set is       {mape}")
         print(self.__msg, f"***********************************************************************")
 
     def __test_model(self, test, model):
@@ -240,8 +248,9 @@ class TestBench:
         total_recall = 0
         total_f1 = 0
         total_mase = 0
+        total_mape = 0
         for i, test_sample in enumerate(test):
-            mse_here, precision, recall, f1, mase = self.__give_one_test_to_model(
+            mse_here, precision, recall, f1, mase, mape = self.__give_one_test_to_model(
                 test_sample=test_sample, model=model, should_print=(i < 10)
             )
             total_mse += mse_here
@@ -249,12 +258,14 @@ class TestBench:
             total_recall += recall
             total_f1 += f1
             total_mase += mase
+            total_mape += mape
         mse = total_mse / len(test)
         precision = total_precision / len(test)
         recall = total_recall / len(test)
         f1 = total_f1 / len(test)
         mase = total_mase / len(test)
-        return mse, precision, recall, f1, mase
+        mape = total_mape / len(test)
+        return mse, precision, recall, f1, mase, mape
 
     def __do_one_test(self, dictionary):
         metric, app = dictionary["metric"], dictionary["app"]
@@ -269,13 +280,13 @@ class TestBench:
         training_time = training_stop_time - training_start_time
         print(self.__msg, f"Training took {training_time} seconds.")
         print(self.__msg, "Starting testing loop")
-        mse, precision, recall, f1, mase = self.__test_model(test=test, model=model)
+        mse, precision, recall, f1, mase, mape = self.__test_model(test=test, model=model)
         self.__print_report(
             metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
-            training_time=training_time, mase=mase
+            training_time=training_time, mase=mase, mape=mape
         )
         print(self.__msg, f"Done with metric='{metric}', app='{app}'")
-        return mse, precision, recall, f1, training_time, mase
+        return mse, precision, recall, f1, training_time, mase, mape
 
     """
     *******************************************************************************************************************
@@ -290,15 +301,15 @@ class TestBench:
             app = dictionary["app"]
             metric = dictionary["metric"]
             print(self.__msg, f"testing metric='{metric}', app='{app}'.")
-            mse, precision, recall, f1, training_time, mase = self.__do_one_test(dictionary=dictionary)
-            full_report += [(mse, precision, recall, f1, training_time, mase)]
+            mse, precision, recall, f1, training_time, mase, mape = self.__do_one_test(dictionary=dictionary)
+            full_report += [(mse, precision, recall, f1, training_time, mase, mape)]
         assert len(full_report) == len(self.__tests_to_perform)
         # plot results
-        for dictionary, (mse, precision, recall, f1, training_time, mase) in zip(self.__tests_to_perform, full_report):
+        for dictionary, (mse, precision, recall, f1, training_time, mase, mape) in zip(self.__tests_to_perform, full_report):
             app, metric = dictionary["app"], dictionary["metric"]
             self.__print_report(
                 metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
-                training_time=training_time, mase=mase
+                training_time=training_time, mase=mase, mape=mape
             )
         print(self.__msg, "Powering off test bench")
 
