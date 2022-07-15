@@ -36,8 +36,8 @@ class DartsLSTMTester:
         # Early stop callback
         my_stopper = EarlyStopping(
             monitor="train_MeanAbsolutePercentageError",
-            patience=50,
-            min_delta=0.000001,
+            patience=5,
+            min_delta=0.001,
             mode='min',
         )
         pl_trainer_kwargs = {"callbacks": [my_stopper]}
@@ -46,26 +46,30 @@ class DartsLSTMTester:
         model = RNNModel(
             # model specific
             input_chunk_length=length_of_shortest_time_series // 2,
+            output_chunk_length=1,
             model="LSTM",
             hidden_dim=100,
             n_rnn_layers=1,
             dropout=0.0,
             training_length=24,
             # shared for all models
-            output_chunk_length=1,
-            n_epochs=500,
+            batch_size=128,
+            n_epochs=100,
+            optimizer_kwargs={"lr": 0.001},
             torch_metrics=torch_metrics,
             pl_trainer_kwargs=pl_trainer_kwargs,
         )
         return model
 
+    @staticmethod
+    def __get_darts_series_from_df(df):
+        arr = df["sample"].to_numpy()
+        res = darts.timeseries.TimeSeries.from_values(arr)
+        return res
+
     def learn_from_data_set(self, training_data_set):
         assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
-        list_of_np_array = [ts_as_df["sample"].to_numpy() for ts_as_df in training_data_set]
-        list_of_series = [
-            darts.timeseries.TimeSeries.from_values(arr)
-            for arr in list_of_np_array
-        ]
+        list_of_series = [self.__get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
         self.__model = DartsLSTMTester.__make_model(
             length_of_shortest_time_series=self.__length_of_shortest_time_series
         )
@@ -74,7 +78,7 @@ class DartsLSTMTester:
     def predict(self, ts_as_df_start, how_much_to_predict):
         assert self.__model is not None
         assert len(ts_as_df_start) >= self.__length_of_shortest_time_series
-        series = darts.timeseries.TimeSeries.from_dataframe(ts_as_df_start, time_col="time", value_cols="sample")
+        series = self.__get_darts_series_from_df(ts_as_df_start)
         res = self.__model.predict(n=how_much_to_predict, series=series, verbose=False)
         res_np_arr = res.pd_series().to_numpy()
         assert isinstance(res_np_arr, np.ndarray)
