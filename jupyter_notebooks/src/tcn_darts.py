@@ -35,7 +35,7 @@ class DartsTCNTester:
         # Hyper-Parameters found using 'find_best_hyper_parameters'
         hp_dict = {
             # node mem
-            ('node_mem', 'moc/smaug'): {'output_chunk_length': 1, 'kernel_size': 4, 'num_filters': 5, 'num_layers': 7, 'dilation_base': 4, 'weight_norm': True, 'dropout': 0.14244119832396093, 'batch_size': 26, 'optimizer_kwargs': {'lr': 0.1}},
+            # ('node_mem', 'moc/smaug'): {'output_chunk_length': 1, 'kernel_size': 4, 'num_filters': 5, 'num_layers': 7, 'dilation_base': 4, 'weight_norm': True, 'dropout': 0.14244119832396093, 'batch_size': 26, 'optimizer_kwargs': {'lr': 0.1}},
             # ('node_mem', 'emea/balrog'): ,
             # container mem
             # ("container_mem", "nmstate-handler"): ,
@@ -83,11 +83,14 @@ class DartsTCNTester:
         # Early stop callback
         my_stopper = EarlyStopping(
             monitor="train_MeanAbsolutePercentageError",  # "val_loss",
-            patience=5,
-            min_delta=0.05,
+            patience=30,
+            min_delta=0.00000001,
             mode='min',
         )
         pl_trainer_kwargs = {"callbacks": [my_stopper]}
+
+        print(self.__msg, "input_chunk_length = ", self.input_chunk_length)
+        print(self.__msg, "output_chunk_length = ", hp["output_chunk_length"])
 
         # Create the model
         self.__model = TCNModel(
@@ -113,12 +116,13 @@ class DartsTCNTester:
             for arr in list_of_np_array
         ]
         self.__make_model(list_of_series)
-        if self.is_hyper_parameter_search_required:
-            self.find_best_hyper_parameters(list_of_series=list_of_series)
+        # if self.is_hyper_parameter_search_required:
+        #     self.find_best_hyper_parameters(list_of_series=list_of_series)
         self.__model.fit(list_of_series)
 
     def predict(self, ts_as_df_start, how_much_to_predict):
-        series = darts.timeseries.TimeSeries.from_dataframe(ts_as_df_start, time_col="time", value_cols="sample")
+        series = darts.timeseries.TimeSeries.from_values(ts_as_df_start["sample"].to_numpy())
+        # self.__model.fit(series)
         res = self.__model.predict(n=how_much_to_predict, series=series)
         assert len(res) == how_much_to_predict
         res_np_arr = res.pd_series().to_numpy()

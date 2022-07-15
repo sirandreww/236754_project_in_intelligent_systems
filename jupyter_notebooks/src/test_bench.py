@@ -48,24 +48,24 @@ class TestBench:
             path_to_data,
             tests_to_perform=(
                 # node mem
-                {"metric": "node_mem", "app": "moc/smaug", "prediction length": 12, "sub sample rate": 60,
-                 "data length limit": 24},
-                {"metric": "node_mem", "app": "emea/balrog", "prediction length": 5, "sub sample rate": 60,
-                 "data length limit": 10},
+                {"metric": "node_mem", "app": "moc/smaug", "prediction length": 10, "sub sample rate": 10,
+                 "data length limit": 80},
+                {"metric": "node_mem", "app": "emea/balrog", "prediction length": 10, "sub sample rate": 10,
+                 "data length limit": 80},
                 # container mem
-                {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 12, "sub sample rate": 60,
-                 "data length limit": 24},
-                {"metric": "container_mem", "app": "coredns", "prediction length": 12, "sub sample rate": 60,
-                 "data length limit": 24},
-                {"metric": "container_mem", "app": "keepalived", "prediction length": 12, "sub sample rate": 60,
-                 "data length limit": 24},
+                {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 10, "sub sample rate": 10,
+                 "data length limit": 80},
+                {"metric": "container_mem", "app": "coredns", "prediction length": 10, "sub sample rate": 10,
+                 "data length limit": 80},
+                {"metric": "container_mem", "app": "keepalived", "prediction length": 10, "sub sample rate": 10,
+                 "data length limit": 80},
                 # container cpu
-                {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 12, "sub sample rate": 60,
-                 "data length limit": 24},
-                {"metric": "container_cpu", "app": "dns", "prediction length": 12, "sub sample rate": 60,
-                 "data length limit": 24},
-                {"metric": "container_cpu", "app": "collector", "prediction length": 12, "sub sample rate": 60,
-                 "data length limit": 24},
+                {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 10, "sub sample rate": 10,
+                 "data length limit": 80},
+                {"metric": "container_cpu", "app": "dns", "prediction length": 10, "sub sample rate": 10,
+                 "data length limit": 80},
+                {"metric": "container_cpu", "app": "collector", "prediction length": 10, "sub sample rate": 10,
+                 "data length limit": 80},
             ),
     ):
         self.__class_to_test = class_to_test
@@ -112,12 +112,14 @@ class TestBench:
         print(self.__msg, "Splitting data into train and test")
         train, test = dataset.split_to_train_and_test(length_to_predict=self.length_to_predict)
         assert len(train) == len(test)
+        assert min(len(df) for df in (train + test)) >= dl_limit
         print(self.__msg, f"Amount of train/test data is {len(train)}")
         return train, test
 
-    def __get_model(self, metric, app):
+    def __get_model(self, metric, app, train, test):
+        length_of_shortest_time_series = min(len(df) for df in (train + test))
         model = self.__class_to_test(
-            length_to_predict=self.length_to_predict,
+            length_of_shortest_time_series=length_of_shortest_time_series,
             metric=metric,
             app=app
         )
@@ -226,14 +228,11 @@ class TestBench:
         print(self.__msg, f"Average MASE over the test set is       {mase}")
         print(self.__msg, f"***********************************************************************")
 
-    def __test_model_and_print_report(self, test, model, metric, app, training_time):
+    def __test_model(self, test, model):
         """
         predicts according to the samples given in test
         @param test: a list of test samples
         @param model: the model we're training
-        @param metric: specified metric
-        @param app: app name
-        @param training_time: time it took to train model
         @return: mse, precision, recall, f1, training_time, mase of the results
         """
         total_mse = 0
@@ -255,12 +254,7 @@ class TestBench:
         recall = total_recall / len(test)
         f1 = total_f1 / len(test)
         mase = total_mase / len(test)
-        self.__print_report(
-            metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
-            training_time=training_time, mase=mase
-        )
-        print(self.__msg, f"Done with metric='{metric}', app='{app}'")
-        return mse, precision, recall, f1, training_time, mase
+        return mse, precision, recall, f1, mase
 
     def __do_one_test(self, dictionary):
         metric, app = dictionary["metric"], dictionary["app"]
@@ -272,9 +266,16 @@ class TestBench:
         training_start_time = time.time()
         model.learn_from_data_set(training_data_set=train)
         training_stop_time = time.time()
-        print(self.__msg, f"Training took {training_stop_time - training_start_time} seconds.")
+        training_time = training_stop_time - training_start_time
+        print(self.__msg, f"Training took {training_time} seconds.")
         print(self.__msg, "Starting testing loop")
-        return self.__test_model_and_print_report(test=test, model=model, metric=metric, app=app, training_time=training_stop_time-training_start_time)
+        mse, precision, recall, f1, mase = self.__test_model(test=test, model=model)
+        self.__print_report(
+            metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
+            training_time=training_time, mase=mase
+        )
+        print(self.__msg, f"Done with metric='{metric}', app='{app}'")
+        return mse, precision, recall, f1, training_time, mase
 
     """
     *******************************************************************************************************************

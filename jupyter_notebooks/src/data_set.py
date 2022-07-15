@@ -138,6 +138,8 @@ class TimeSeriesDataSet:
         train.__is_data_scaled = self.__is_data_scaled
         train.__mean = self.__mean
         train.__std = self.__std
+        assert min(len(df) for df in train) == (min(len(df) for df in test) - length_to_predict)
+        assert max(len(df) for df in train) == (max(len(df) for df in test) - length_to_predict)
         return train, test
 
 
