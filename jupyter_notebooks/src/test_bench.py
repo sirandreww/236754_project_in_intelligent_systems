@@ -149,6 +149,7 @@ class TestBench:
         """
         assert len(original_np) == len(predicted_np)
         mse_here = (np.square(original_np - predicted_np)).mean()
+
         actual_positives = [original_np[i + 1] >= original_np[i] for i in range(len(original_np) - 1)]
         predicted_positives = [predicted_np[i + 1] >= predicted_np[i] for i in range(len(predicted_np) - 1)]
         assert len(actual_positives) == len(predicted_positives)
@@ -167,6 +168,7 @@ class TestBench:
         precision = true_positive / (true_positive + false_positive) if (true_positive + false_positive != 0) else 0
         recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative != 0) else 0
         f1 = (2 * precision * recall) / (precision + recall) if (precision + recall != 0) else 0
+
         mase = TestBench.__calculate_mase(y_pred=original_np, y_true=predicted_np)
         return mse_here, precision, recall, f1, mase
 

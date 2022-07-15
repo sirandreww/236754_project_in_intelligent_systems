@@ -5,12 +5,11 @@
 """
 
 import darts
-from darts.models import RNNModel
+from darts.models import TCNModel
 import test_bench
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
 import os
-
 
 """
 ***********************************************************************************************************************
@@ -19,7 +18,7 @@ import os
 """
 
 
-class DartsLSTMTester:
+class DartsTCNTester:
     def __init__(self, length_to_predict, metric, app):
         # save inputs
         self.__metric = metric
@@ -27,7 +26,7 @@ class DartsLSTMTester:
         self.__length_to_predict = length_to_predict
 
         # constants
-        self.__msg = "[DartsLSTMTester]"
+        self.__msg = "[DartsTCNTester]"
 
         # will change
         self.__model = None
@@ -36,8 +35,8 @@ class DartsLSTMTester:
         # Hyper-Parameters found using 'find_best_hyper_parameters'
         hp_dict = {
             # node mem
-            ('node_mem', 'moc/smaug'):   {'batch_size': 15, 'dropout': 0.09112489613547475, 'hidden_dim': 14, 'n_rnn_layers': 1, 'optimizer_kwargs': {'lr': 0.05}, 'output_chunk_length': 10}
-            # ('node_mem', 'emea/balrog'): {'batch_size': 22, 'dropout': 0.09292093736642433, 'hidden_dim': 87, 'n_rnn_layers': 1, 'optimizer_kwargs': {'lr': 0.05}, 'output_chunk_length': 5},
+            ('node_mem', 'moc/smaug'): {'output_chunk_length': 1, 'kernel_size': 4, 'num_filters': 5, 'num_layers': 7, 'dilation_base': 4, 'weight_norm': True, 'dropout': 0.14244119832396093, 'batch_size': 26, 'optimizer_kwargs': {'lr': 0.1}},
+            # ('node_mem', 'emea/balrog'): ,
             # container mem
             # ("container_mem", "nmstate-handler"): ,
             # ("container_mem", "coredns"): ,
@@ -48,27 +47,36 @@ class DartsLSTMTester:
             # ("container_cpu", "collector"): ,
         }
         hyper_parameters = hp_dict[(self.__metric, self.__app)] if ((self.__metric, self.__app) in hp_dict) else {
-            'batch_size': 179,
-            'dropout': 0.025308023037584018,
-            'hidden_dim': 100,
-            'n_rnn_layers': 3,
-            'optimizer_kwargs': {'lr': 0.005},
-            'output_chunk_length': self.__length_to_predict,
+            "output_chunk_length": self.__length_to_predict,
+            "kernel_size": 3,
+            "num_filters": 3,
+            "num_layers": 2,
+            "dilation_base": 2,
+            "weight_norm": False,
+            "dropout": 0.1,
+            "batch_size": 128,
+            "optimizer_kwargs": {'lr': 0.005},
         }
         self.is_hyper_parameter_search_required = not ((self.__metric, self.__app) in hp_dict)
         if not self.is_hyper_parameter_search_required:
             print(self.__msg, f"Hyper-Parameters loaded for metric='{self.__metric}' and app='{self.__app}'")
-        assert "batch_size" in hyper_parameters
-        assert "dropout" in hyper_parameters
-        assert "hidden_dim" in hyper_parameters
-        assert "n_rnn_layers" in hyper_parameters
-        assert "optimizer_kwargs" in hyper_parameters
+
         assert "output_chunk_length" in hyper_parameters
+        assert "kernel_size" in hyper_parameters
+        assert "num_filters" in hyper_parameters
+        assert "num_layers" in hyper_parameters
+        assert "dilation_base" in hyper_parameters
+        assert "weight_norm" in hyper_parameters
+        assert "dropout" in hyper_parameters
+        assert "batch_size" in hyper_parameters
+        assert "optimizer_kwargs" in hyper_parameters
+
         return hyper_parameters
 
     def __make_model(self, list_of_series):
         hp = self.__get_hyper_parameters()
         self.input_chunk_length = min(len(df) - self.__length_to_predict for df in list_of_series)
+        print(self.__msg, "self.input_chunk_length = ", self.input_chunk_length)
         # A TorchMetric or val_loss can be used as the monitor
         torch_metrics = MeanAbsolutePercentageError()
 
@@ -82,18 +90,20 @@ class DartsLSTMTester:
         pl_trainer_kwargs = {"callbacks": [my_stopper]}
 
         # Create the model
-        self.__model = RNNModel(
-            model="LSTM",
+        self.__model = TCNModel(
             input_chunk_length=self.input_chunk_length,
             output_chunk_length=hp["output_chunk_length"],
+            kernel_size=hp["kernel_size"],
+            num_filters=hp["num_filters"],
+            num_layers=hp["num_layers"],
+            dilation_base=hp["dilation_base"],
+            weight_norm=hp["weight_norm"],
+            dropout=hp["dropout"],
+            batch_size=hp["batch_size"],
             n_epochs=500,
             torch_metrics=torch_metrics,
             pl_trainer_kwargs=pl_trainer_kwargs,
-            batch_size=hp["batch_size"],
-            dropout=hp["dropout"],
-            hidden_dim=hp["hidden_dim"],
-            n_rnn_layers=hp["n_rnn_layers"],
-            optimizer_kwargs=hp["optimizer_kwargs"]
+            optimizer_kwargs=hp["optimizer_kwargs"],
         )
 
     def learn_from_data_set(self, training_data_set):
@@ -134,11 +144,10 @@ class DartsLSTMTester:
         def train_model(model_args, callbacks, train, val):
             torch_metrics = MetricCollection([MeanAbsolutePercentageError(), MeanAbsoluteError()])
             # Create the model using model_args from Ray Tune
-            model = RNNModel(
-                model="LSTM",
+            model = TCNModel(
+                input_chunk_length=self.input_chunk_length,
                 n_epochs=500,
                 torch_metrics=torch_metrics,
-                input_chunk_length=self.input_chunk_length,
                 pl_trainer_kwargs={"callbacks": callbacks, "enable_progress_bar": False},
                 **model_args)
 
@@ -175,14 +184,17 @@ class DartsLSTMTester:
 
         # define the hyperparameter space
         config = {
-            "batch_size": tune.choice([i for i in range(0, 200)]),
+            "output_chunk_length": tune.choice([i for i in range(1, self.__length_to_predict + 1)]),
+            "kernel_size": tune.choice([1, 2, 3, 4, 5, 6, 7]),
+            "num_filters": tune.choice([1, 2, 3, 4, 5, 6, 7]),
+            "num_layers": tune.choice([1, 2, 3, 4, 5, 6, 7]),
+            "dilation_base": tune.choice([1, 2, 3, 4, 5, 6, 7]),
+            "weight_norm": tune.choice([True, False]),
             "dropout": tune.uniform(0, 0.2),
-            "hidden_dim": tune.choice([i for i in range(1, 200)]),
-            "n_rnn_layers": tune.choice([1, 2, 3, 4]),
+            "batch_size": tune.choice([i for i in range(0, 200)]),
             "optimizer_kwargs": tune.choice([
                 {"lr": 0.1}, {"lr": 0.05}, {"lr": 0.01}, {"lr": 0.005}, {"lr": 0.001}, {"lr": 0.0005}, {"lr": 0.0001}
             ]),
-            "output_chunk_length": tune.choice([i for i in range(1, self.__length_to_predict + 1)]),
         }
 
         reporter = CLIReporter(
@@ -218,17 +230,16 @@ class DartsLSTMTester:
 
         print("Best hyperparameters found were: ", analysis.best_config)
 
-
-"""
-***********************************************************************************************************************
-    main function
-***********************************************************************************************************************
-"""
+        """
+        ***********************************************************************************************************************
+            main function
+        ***********************************************************************************************************************
+        """
 
 
 def main():
     tb = test_bench.TestBench(
-        class_to_test=DartsLSTMTester,
+        class_to_test=DartsTCNTester,
         path_to_data="../data/",
         tests_to_perform=[
             {"metric": "node_mem", "app": "moc/smaug", "test percentage": 0.2, "sub sample rate": 5,
