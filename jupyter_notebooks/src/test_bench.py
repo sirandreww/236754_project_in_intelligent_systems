@@ -48,23 +48,23 @@ class TestBench:
             path_to_data,
             tests_to_perform=(
                 # node mem
-                {"metric": "node_mem", "app": "moc/smaug", "test percentage": 0.2, "sub sample rate": 60,
+                {"metric": "node_mem", "app": "moc/smaug", "prediction length": 12, "sub sample rate": 60,
                  "data length limit": 24},
-                {"metric": "node_mem", "app": "emea/balrog", "test percentage": 0.2, "sub sample rate": 60,
-                 "data length limit": 24},
+                {"metric": "node_mem", "app": "emea/balrog", "prediction length": 5, "sub sample rate": 60,
+                 "data length limit": 10},
                 # container mem
-                {"metric": "container_mem", "app": "nmstate-handler", "test percentage": 0.2, "sub sample rate": 60,
+                {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 12, "sub sample rate": 60,
                  "data length limit": 24},
-                {"metric": "container_mem", "app": "coredns", "test percentage": 0.2, "sub sample rate": 60,
+                {"metric": "container_mem", "app": "coredns", "prediction length": 12, "sub sample rate": 60,
                  "data length limit": 24},
-                {"metric": "container_mem", "app": "keepalived", "test percentage": 0.2, "sub sample rate": 60,
+                {"metric": "container_mem", "app": "keepalived", "prediction length": 12, "sub sample rate": 60,
                  "data length limit": 24},
                 # container cpu
-                {"metric": "container_cpu", "app": "kube-rbac-proxy", "test percentage": 0.2, "sub sample rate": 60,
+                {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 12, "sub sample rate": 60,
                  "data length limit": 24},
-                {"metric": "container_cpu", "app": "dns", "test percentage": 0.2, "sub sample rate": 60,
+                {"metric": "container_cpu", "app": "dns", "prediction length": 12, "sub sample rate": 60,
                  "data length limit": 24},
-                {"metric": "container_cpu", "app": "collector", "test percentage": 0.2, "sub sample rate": 60,
+                {"metric": "container_cpu", "app": "collector", "prediction length": 12, "sub sample rate": 60,
                  "data length limit": 24},
             ),
     ):
@@ -73,15 +73,59 @@ class TestBench:
         for dictionary in tests_to_perform:
             assert "metric" in dictionary
             assert "app" in dictionary
-            assert "test percentage" in dictionary
+            assert "prediction length" in dictionary
             assert "sub sample rate" in dictionary
             assert "data length limit" in dictionary
+            assert dictionary["data length limit"] > dictionary["prediction length"]
         self.__tests_to_perform = tests_to_perform
         self.__msg = "[TEST BENCH]"
+        # mutable variable
+        self.length_to_predict = None
 
     """
     *******************************************************************************************************************
-        Helper functions
+        Data and model related functions
+    *******************************************************************************************************************
+    """
+
+    def __get_data(self, dictionary):
+        """
+        @param dictionary: a specified test (keys are the definitions of the tests: the metrics, app name and more)
+        @return: train and test datasets
+        """
+        metric = dictionary["metric"]
+        app = dictionary["app"]
+        ss_rate = dictionary["sub sample rate"]
+        dl_limit = dictionary["data length limit"]
+        self.length_to_predict = dictionary["prediction length"]
+        dataset = get_data_set(
+            metric=metric,
+            application_name=app,
+            path_to_data=self.__path_to_data
+        )
+        print(self.__msg, f"Subsampling data from 1 sample per 1 minute to 1 sample per {ss_rate} minutes.")
+        dataset.sub_sample_data(sub_sample_rate=ss_rate)
+        print(self.__msg, f"Throwing out data that is less than {dl_limit * ss_rate / 60} hours long.")
+        dataset.filter_data_that_is_too_short(data_length_limit=dl_limit)
+        print(self.__msg, "Scaling data.")
+        dataset.scale_data()
+        print(self.__msg, "Splitting data into train and test")
+        train, test = dataset.split_to_train_and_test(length_to_predict=self.length_to_predict)
+        assert len(train) == len(test)
+        print(self.__msg, f"Amount of train/test data is {len(train)}")
+        return train, test
+
+    def __get_model(self, metric, app):
+        model = self.__class_to_test(
+            length_to_predict=self.length_to_predict,
+            metric=metric,
+            app=app
+        )
+        return model
+
+    """
+    *******************************************************************************************************************
+        Model assessment
     *******************************************************************************************************************
     """
 
@@ -95,33 +139,6 @@ class TestBench:
         mean_absolute_error_of_prediction = np.abs(y_true - y_pred).mean()
         mean_absolute_error_of_naive = np.abs(y_true[1:] - y_true[:-1]).mean()
         return mean_absolute_error_of_prediction / mean_absolute_error_of_naive
-
-    def __get_data(self, dictionary):
-        """
-        @param dictionary: a specified test (keys are the definitions of the tests: the metrics, app name and more)
-        @return: a data set that will be tested according to the dictionary
-        """
-        metric = dictionary["metric"]
-        app = dictionary["app"]
-        ss_rate = dictionary["sub sample rate"]
-        dl_limit = dictionary["data length limit"]
-        tp = dictionary["test percentage"]
-        dataset = get_data_set(
-            metric=metric,
-            application_name=app,
-            path_to_data=self.__path_to_data
-        )
-        print(self.__msg, f"Subsampling data from 1 sample per 1 minute to 1 sample per {ss_rate} minutes.")
-        dataset.sub_sample_data(sub_sample_rate=ss_rate)
-        print(self.__msg, f"Throwing out data that is less than {dl_limit * ss_rate / 60} hours long.")
-        dataset.filter_data_that_is_too_short(data_length_limit=dl_limit)
-        print(self.__msg, "Scaling data.")
-        dataset.scale_data()
-        print(self.__msg, "Splitting data into train and test")
-        train, test = dataset.split_to_train_and_test(test_percentage=tp)
-        print(self.__msg, f"Amount of train data is {len(train)}")
-        print(self.__msg, f"Amount of test data is {len(test)}")
-        return train, test
 
     @staticmethod
     def __get_mse_precision_recall_f1_and_mase(original_np, predicted_np):
@@ -153,17 +170,6 @@ class TestBench:
         mase = TestBench.__calculate_mase(y_pred=original_np, y_true=predicted_np)
         return mse_here, precision, recall, f1, mase
 
-    @staticmethod
-    def __get_amount_to_predict(test_sample):
-        """
-
-        @param test_sample: a test sample
-        @return: the length of a prediction (test sample length /2)
-        """
-        how_much_to_give = len(test_sample) // 2
-        how_much_to_predict = len(test_sample) - how_much_to_give
-        return how_much_to_predict
-
     def __give_one_test_to_model(self, test_sample, model, should_print):
         """
 
@@ -172,7 +178,8 @@ class TestBench:
         @param should_print: true if we want to plot
         @return: mse, precision, recall, f1, mase of the test sample
         """
-        how_much_to_predict = self.__get_amount_to_predict(test_sample=test_sample)
+        assert self.length_to_predict < len(test_sample)
+        how_much_to_predict = self.length_to_predict
         how_much_to_give = len(test_sample) - how_much_to_predict
         returned_ts_as_np_array = model.predict(
             ts_as_df_start=test_sample[: how_much_to_give],
@@ -253,43 +260,12 @@ class TestBench:
         print(self.__msg, f"Done with metric='{metric}', app='{app}'")
         return mse, precision, recall, f1, training_time, mase
 
-    def __get_longest_length_to_predict(self, train, test):
-        """
-
-        @param train: train set
-        @param test: train set
-        @return: the longest length of prediction that we should output ever given the test and train sets
-        """
-        longest_length_to_predict = max(
-            [self.__get_amount_to_predict(arr) for arr in train] +
-            [self.__get_amount_to_predict(arr) for arr in test]
-        )
-        return longest_length_to_predict
-
-    def __get_shortest_input(self, train, test):
-        shortest_input = min(
-            [len(arr) - self.__get_amount_to_predict(arr) for arr in train] +
-            [len(arr) - self.__get_amount_to_predict(arr) for arr in test]
-        )
-        return shortest_input
-
-    def __get_model(self, train, test, metric, app):
-        longest_length_to_predict = self.__get_longest_length_to_predict(train=train, test=test)
-        shortest_input = self.__get_shortest_input(train=train, test=test)
-        model = self.__class_to_test(
-            longest_length_to_predict=longest_length_to_predict,
-            shortest_input=shortest_input,
-            metric=metric,
-            app=app
-        )
-        return model
-
     def __do_one_test(self, dictionary):
         metric, app = dictionary["metric"], dictionary["app"]
         print(self.__msg, f"Fetching data for metric='{metric}', app='{app}'.")
         train, test = self.__get_data(dictionary=dictionary)
         print(self.__msg, "Making an instance of the class we want to test")
-        model = self.__get_model(train=train, test=test, metric=metric, app=app)
+        model = self.__get_model(metric=metric, app=app)
         print(self.__msg, "Starting training loop")
         training_start_time = time.time()
         model.learn_from_data_set(training_data_set=train)
@@ -333,7 +309,7 @@ class TestBench:
 
 def main():
     class DumbPredictor:
-        def __init__(self, longest_length_to_predict, shortest_input, metric, app):
+        def __init__(self, longest_length_to_predict, shortest_length_to_predict, shortest_input, metric, app):
             print("Constructor called.")
             self.print_once = True
 

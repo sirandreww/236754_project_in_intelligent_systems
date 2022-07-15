@@ -117,22 +117,24 @@ class TimeSeriesDataSet:
             # print(normalized_sample_column)
             df["sample"] = standardized_sample_column
 
-    def split_to_train_and_test(self, test_percentage):
+    def split_to_train_and_test(self, length_to_predict):
         """
-        according to an input ,test percentage , we split the entire data set to train set and test set.
-        @param test_percentage: the percentage of samples from the data set to be included in the test set.
+        according to an input, length to predict , we split the entire data set to train set and test set.
+        The test set will be the same as the dataset in self. The train set will have the same amount of samples,
+        but they will be shorter samples with their "tips" cut off.
+        @param length_to_predict: The length to cut off from the train set.
         @return: train data set and test data set with sizes according to the input percentage.
         """
-        assert 0 < test_percentage < 1
-        test_size = int(len(self) * test_percentage)
+        assert 0 < length_to_predict < min([len(df) for df in self])
+        assert isinstance(length_to_predict, int)
         random.shuffle(self.__list_of_df)
         # copy info to test
-        test = TimeSeriesDataSet(list_of_df=self.__list_of_df[:test_size])
+        test = TimeSeriesDataSet(list_of_df=self.__list_of_df)
         test.__is_data_scaled = self.__is_data_scaled
         test.__mean = self.__mean
         test.__std = self.__std
         # copy info to train
-        train = TimeSeriesDataSet(list_of_df=self.__list_of_df[test_size:])
+        train = TimeSeriesDataSet(list_of_df=[df[:-length_to_predict] for df in self.__list_of_df])
         train.__is_data_scaled = self.__is_data_scaled
         train.__mean = self.__mean
         train.__std = self.__std
@@ -288,6 +290,7 @@ def get_amount_of_data_per_application(metric, path_to_data):
 
 def main():
     print("Start.")
+    length_to_predict = 4
     test = 0
     if test == 0:
         print("Getting DataSet.")
@@ -297,17 +300,19 @@ def main():
             path_to_data="../data/"
         )
         print("Plotting.")
-        dataset.plot_dataset(number_of_samples=10)
+        dataset.plot_dataset(number_of_samples=3)
         print("Subsampling.")
-        dataset.sub_sample_data(sub_sample_rate=5)
+        dataset.sub_sample_data(sub_sample_rate=60)
         print("Plotting.")
-        dataset.plot_dataset(number_of_samples=10)
+        dataset.plot_dataset(number_of_samples=3)
         print("Normalizing.")
         dataset.scale_data()
         print("Plotting.")
-        dataset.plot_dataset(number_of_samples=10)
+        dataset.plot_dataset(number_of_samples=3)
+        print("Filtering time series that are too short.")
+        dataset.filter_data_that_is_too_short(data_length_limit=2 * length_to_predict)
         print("Splitting.")
-        train, test = dataset.split_to_train_and_test(test_percentage=0.2)
+        train, test = dataset.split_to_train_and_test(length_to_predict=length_to_predict)
         print("Plotting.")
         train.plot_dataset(number_of_samples=10)
         test.plot_dataset(number_of_samples=10)
