@@ -90,11 +90,20 @@ class TestBench:
 
     @staticmethod
     def __calculate_mase(y_pred, y_true):
+        """
+        @param y_pred: prediction of our model
+        @param y_true: true results
+        @return: returns the MASE of the prediction
+        """
         mean_absolute_error_of_prediction = np.abs(y_true - y_pred).mean()
         mean_absolute_error_of_naive = np.abs(y_true[1:] - y_true[:-1]).mean()
         return mean_absolute_error_of_prediction / mean_absolute_error_of_naive
 
     def __get_data(self, dictionary):
+        """
+        @param dictionary: a specified test (keys are the definitions of the tests: the metrics, app name and more)
+        @return: a data set that will be tested according to the dictionary
+        """
         metric = dictionary["metric"]
         app = dictionary["app"]
         ss_rate = dictionary["sub sample rate"]
@@ -119,6 +128,11 @@ class TestBench:
 
     @staticmethod
     def __get_mse_precision_recall_f1_and_mase(original_np, predicted_np):
+        """
+        @param original_np: true values
+        @param predicted_np: prediction values
+        @return: the mse, precision_recall_f1 and MASE of the results
+        """
         assert len(original_np) == len(predicted_np)
         mse_here = (np.square(original_np - predicted_np)).mean()
         actual_positives = [original_np[i + 1] >= original_np[i] for i in range(len(original_np) - 1)]
@@ -144,6 +158,11 @@ class TestBench:
 
     @staticmethod
     def __get_amount_to_predict(test_sample):
+        """
+
+        @param test_sample: a test sample
+        @return: the length of a prediction (test sample length /2)
+        """
         how_much_to_give = len(test_sample) // 2
         how_much_to_predict = len(test_sample) - how_much_to_give
         return how_much_to_predict
