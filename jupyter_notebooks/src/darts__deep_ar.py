@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
 import numpy as np
 import darts__helper as dh
-
+from darts.utils.likelihood_models import GaussianLikelihood
 
 """
 ***********************************************************************************************************************
@@ -18,12 +18,12 @@ import darts__helper as dh
 """
 
 
-class DartsLSTMTester:
+class DartsDEEPARTester:
     def __init__(self, length_of_shortest_time_series, metric, app):
         self.__length_of_shortest_time_series = length_of_shortest_time_series
 
         # constants
-        self.__msg = "[DartsLSTMTester]"
+        self.__msg = "[DartsDEEPARTester]"
 
         # will change
         self.__model = None
@@ -52,6 +52,7 @@ class DartsLSTMTester:
             n_rnn_layers=1,
             dropout=0.0,
             training_length=24,
+            likelihood=GaussianLikelihood(),
             # shared for all models
             batch_size=128,
             n_epochs=100,
@@ -63,8 +64,8 @@ class DartsLSTMTester:
 
     def learn_from_data_set(self, training_data_set):
         assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
-        list_of_series = [dh.__get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
-        self.__model = DartsLSTMTester.__make_model(
+        list_of_series = [dh.get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
+        self.__model = DartsDEEPARTester.__make_model(
             length_of_shortest_time_series=self.__length_of_shortest_time_series
         )
         self.__model.fit(list_of_series)
@@ -72,11 +73,9 @@ class DartsLSTMTester:
     def predict(self, ts_as_df_start, how_much_to_predict):
         assert self.__model is not None
         assert len(ts_as_df_start) >= self.__length_of_shortest_time_series
-        series = dh.__get_darts_series_from_df(ts_as_df_start)
+        series = dh.get_darts_series_from_df(ts_as_df_start)
         res = self.__model.predict(n=how_much_to_predict, series=series, verbose=False)
-        res_np_arr = res.pd_series().to_numpy()
-        assert isinstance(res_np_arr, np.ndarray)
+        res_np_arr = dh.get_np_array_from_series(series=res)
         assert len(res_np_arr) == how_much_to_predict
         assert res_np_arr.shape == (how_much_to_predict,)
-        assert res_np_arr.dtype == np.float64
         return res_np_arr
