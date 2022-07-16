@@ -6,6 +6,7 @@
 
 import pytorch__driver_for_test_bench
 import torch.nn as nn
+import torch.optim as optim
 
 """
 ***********************************************************************************************************************
@@ -87,8 +88,13 @@ class PytorchLSTMTester:
             input_size=1,
             output_size=1,
         ).to(pytorch__driver_for_test_bench.get_device())
+        self.__optimizer = optim.Adam(self.__model.parameters())
+        self.__best_model = self.__model
+        self.__criterion = nn.L1Loss()
         # print
         print(self.__msg, f"model = {self.__model}")
+        print(self.__msg, f"optimizer = {self.__optimizer}")
+        print(self.__msg, f"criterion = {self.__criterion}")
 
     """
     *******************************************************************************************************************
@@ -97,15 +103,20 @@ class PytorchLSTMTester:
     """
 
     def learn_from_data_set(self, training_data_set):
-        pytorch__driver_for_test_bench.train_neural_network(
+        self.__best_model = pytorch__driver_for_test_bench.train_neural_network(
             training_data_set=training_data_set,
             model=self.__model,
-            model_input_length=self.__model_input_length
+            num_epochs=10,
+            model_input_length=self.__model_input_length,
+            batch_size=64,
+            criterion=self.__criterion,
+            optimizer=self.__optimizer
         )
-        return None
 
     def predict(self, ts_as_df_start, how_much_to_predict):
-        return self.driver.predict(ts_as_df_start=ts_as_df_start, how_much_to_predict=how_much_to_predict)
+        return pytorch__driver_for_test_bench.predict(
+            ts_as_df_start=ts_as_df_start, how_much_to_predict=how_much_to_predict, best_model=self.__best_model
+        )
 
 
 """

@@ -23,7 +23,8 @@ import os
 ***********************************************************************************************************************
 """
 
-__msg = "PytorchTester"
+__msg = "[PytorchTester]"
+__padding = -9999999999
 
 """
 ***********************************************************************************************************************
@@ -36,23 +37,30 @@ def __convert_np_array_to_pytorch_tensor(array):
     return torch.from_numpy(array).to(torch.float32)
 
 
-def __prepare_batches(training_data_set, model_input_length):
-    list_of_np_array = [
-        ts_as_df["sample"].to_numpy()
-        for ts_as_df in training_data_set
-    ]
-    list_of_input_output_np_array = [
-        (arr[i: model_input_length + i], arr[model_input_length + i: model_input_length + i + 1])
-        for arr in list_of_np_array
-        for i in range(len(arr) - model_input_length)
-    ]
+def __plot_prediction_of_random_sample(training_data_set, best_model):
+    print(__msg, f"Plotting prediction for some random sample in the test set.")
+    test_sample = random.choice([ts for ts in training_data_set])
+    how_much_to_give = len(test_sample) // 2
+    how_much_to_predict = len(test_sample) - how_much_to_give
+    returned_ts_as_np_array = predict(
+        ts_as_df_start=test_sample[: how_much_to_give],
+        how_much_to_predict=how_much_to_predict,
+        best_model=best_model
+    )
+    framework__test_bench.plot_result(
+        original=test_sample,
+        prediction_as_np_array=returned_ts_as_np_array,
+    )
+    out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
+    mse_here = (np.square(out_should_be - returned_ts_as_np_array)).mean()
+    print(__msg, f"MSE of this prediction is: {mse_here}")
 
-    list_of_input_output_tensors = [
-        (Variable(self.__convert_np_array_to_pytorch_tensor(a)[:, None]),
-         Variable(self.__convert_np_array_to_pytorch_tensor(b)))
-        for a, b in list_of_input_output
-    ]
 
+"""
+***********************************************************************************************************************
+    Helper functions for batch making
+***********************************************************************************************************************
+"""
 
 
 def __partition_list_to_batches(list_of_something, batch_size):
@@ -65,77 +73,68 @@ def __partition_list_to_batches(list_of_something, batch_size):
     return result
 
 
-def __combine_batches(self, batches):
+def __combine_batches_of_np_array(batches):
     combined_batches = []
     for batch in batches:
-        # TODO: stack
-        batch_in = [tup[0] for tup in batch]
-        batch_out = [tup[1] for tup in batch]
-        batch_in_tensor = torch.nn.utils.rnn.pad_sequence(
-            batch_in, batch_first=True, padding_value=self.padding
-        ).to(device=self.device)
-        batch_out_tensor = torch.nn.utils.rnn.pad_sequence(
-            batch_out, batch_first=True, padding_value=self.padding
-        ).to(device=self.device)
-        true_if_pad = (batch_out_tensor == self.padding)
-        false_if_pad = (batch_out_tensor != self.padding)
-        predict_length = batch_out_tensor.size(1)
-        combined_batches += [(batch_in_tensor, batch_out_tensor, true_if_pad, false_if_pad, predict_length)]
+        batch_in_as_list_of_np_array = [tup[0] for tup in batch]
+        batch_out_as_list_of_np_array = [tup[1] for tup in batch]
+        stacked_in = np.stack(batch_in_as_list_of_np_array)
+        stacked_out = np.stack(batch_out_as_list_of_np_array)
+        stacked_in_tensor = Variable(__convert_np_array_to_pytorch_tensor(stacked_in).to(get_device()))[:, :, None]
+        stacked_out_tensor = Variable(__convert_np_array_to_pytorch_tensor(stacked_out).to(get_device()))
+
+        true_if_pad = (stacked_out_tensor == __padding)
+        assert true_if_pad.sum() == 0
+        false_if_pad = (stacked_out_tensor != __padding)
+        predict_length = stacked_out_tensor.size(1)
+        combined_batches += [(stacked_in_tensor, stacked_out_tensor)]
     return combined_batches
 
 
-def __list_of_np_array_to_list_of_batch(self, list_of_np_array):
-    list_of_samples = []
-    for np_arr in list_of_np_array:
-        list_of_samples += self.__turn_np_array_into_list_of_samples(
-            np_array=np_arr,
-        )
-    print(__msg, f"Length of list_of_samples = ", len(list_of_samples))
-    batches = __partition_list_to_batches(
-        list_of_something=list_of_samples
+def __prepare_batches(training_data_set, model_input_length, batch_size):
+    list_of_np_array = [
+        ts_as_df["sample"].to_numpy()
+        for ts_as_df in training_data_set
+    ]
+    list_of_input_output_np_array = [
+        (arr[i: model_input_length + i], arr[model_input_length + i: model_input_length + i + 1])
+        for arr in list_of_np_array
+        for i in range(len(arr) - model_input_length)
+    ]
+    list_of_input_output_np_array_batched = __partition_list_to_batches(
+        list_of_something=list_of_input_output_np_array, batch_size=batch_size
     )
-    combined = self.__combine_batches(batches=batches)
+    combined = __combine_batches_of_np_array(batches=list_of_input_output_np_array_batched)
     return combined
 
 
-def __plot_prediction_of_random_sample(self, training_data_set):
-    print(__msg, f"Plotting prediction for some random sample in the test set.")
-    test_sample = random.choice([ts for ts in training_data_set])
-    how_much_to_give = len(test_sample) // 2
-    how_much_to_predict = len(test_sample) - how_much_to_give
-    returned_ts_as_np_array = self.predict(
-        ts_as_df_start=test_sample[: how_much_to_give],
-        how_much_to_predict=how_much_to_predict
-    )
-    framework__test_bench.plot_result(
-        original=test_sample,
-        prediction_as_np_array=returned_ts_as_np_array,
-    )
-    out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
-    mse_here = (np.square(out_should_be - returned_ts_as_np_array)).mean()
-    print(__msg, f"MSE of this prediction is: {mse_here}")
+"""
+***********************************************************************************************************************
+    Helper functions for training
+***********************************************************************************************************************
+"""
 
 
-def __do_batch(self, batch_data):
-    train_input, train_target, true_if_pad, false_if_pad, predict_length = batch_data
-    self.optimizer.zero_grad()
-    out = self.model.forward(x=train_input, future=predict_length)
-    loss_array = self.__criterion(out, train_target)
-    loss_array[true_if_pad] = 0
-    loss = loss_array.sum() / false_if_pad.sum()
+def __do_batch(batch_data, optimizer, model, criterion):
+    train_input, train_target = batch_data
+    optimizer.zero_grad()
+    out = model.forward(x=train_input)
+    loss = criterion(out, train_target)
+    # loss_array[true_if_pad] = 0
+    # loss = loss_array.sum() / false_if_pad.sum()
     loss.backward()
-    self.optimizer.step()
+    optimizer.step()
     return loss.item()
 
 
-def __do_epoch(self, epoch_num, list_of_batch, training_data_set):
+def __do_epoch(epoch_num, list_of_batch, training_data_set, optimizer, model, criterion):
     sum_of_losses = 0
     for i, batch_data in enumerate(list_of_batch):
-        loss = self.__do_batch(batch_data=batch_data)
+        loss = __do_batch(batch_data=batch_data, optimizer=optimizer, model=model, criterion=criterion)
         # print(__msg, f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
         sum_of_losses += loss
     # choose random sample and plot
-    self.__plot_prediction_of_random_sample(training_data_set=training_data_set)
+    __plot_prediction_of_random_sample(training_data_set=training_data_set, best_model=model)
     return sum_of_losses
 
 
@@ -148,55 +147,44 @@ def __do_epoch(self, epoch_num, list_of_batch, training_data_set):
 
 def get_device():
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # def __init__(self):
-    #     # not accessible to owning class
-    #     __msg = "[PytorchTester]"
-    #     self.__best_model = None
-    #     self.__criterion = nn.MSELoss(reduction='none')
-    #     print(__msg, f"criterion =", self.__criterion)
-    #     # accessible to owning class
-    #     self.device =
-    #     self.model = None
-    #     self.optimizer = None
-    #     self.batch_size = 64
-    #     self.padding = -99999
-    #     self.num_epochs = 8
-    #     self.sample_multiplier = 1  # Number of samples we will learn with is 1+2+3+ ... +sample_multiplier
 
 
-def train_neural_network(training_data_set, model, num_epochs, model_input_length):
-    batches = __prepare_batches(training_data_set=training_data_set, model_input_length=model_input_length)
+def train_neural_network(training_data_set, model, num_epochs, model_input_length, batch_size, optimizer, criterion):
+    list_of_batch = __prepare_batches(
+        training_data_set=training_data_set,
+        model_input_length=model_input_length,
+        batch_size=batch_size
+    )
     epoch_time = 0
     min_sum_of_losses = float('inf')
+    best_model = copy.deepcopy(model)
     for e in range(num_epochs):
-        print(__msg, f"Epoch {e + 1} / {self.num_epochs}. Last epoch time was {epoch_time}")
+        print(__msg, f"Epoch {e + 1} / {num_epochs}. Last epoch time was {epoch_time}")
         epoch_start_time = time.time()
-        sum_of_losses = self.__do_epoch(
-            epoch_num=e,
-            list_of_batch=list_of_batch,
-            training_data_set=training_data_set
+        sum_of_losses = __do_epoch(
+            epoch_num=e, list_of_batch=list_of_batch, training_data_set=training_data_set, optimizer=optimizer,
+            model=model, criterion=criterion
         )
         if sum_of_losses < min_sum_of_losses:
             min_sum_of_losses = sum_of_losses
-            self.__best_model = copy.deepcopy(self.model)
-            assert not (self.__best_model is self.model)  # assert different objects
+            best_model = copy.deepcopy(model)
+            assert not (best_model is model)  # assert different objects
         epoch_stop_time = time.time()
         epoch_time = epoch_stop_time - epoch_start_time
         avg_loss = sum_of_losses / len(list_of_batch)
         print(__msg, f"************************ Average loss for the batches in the epoch: {avg_loss}")
+    return best_model
 
 
-def predict(self, ts_as_df_start, how_much_to_predict):
+def predict(ts_as_df_start, how_much_to_predict, best_model):
     with torch.no_grad():
         ts_as_np = ts_as_df_start["sample"].to_numpy()
-        ts_as_tensor = self.__convert_np_array_to_pytorch_tensor(ts_as_np)
-        model = self.model if self.__best_model is None else self.__best_model
-        prediction = model.forward(
-            ts_as_tensor[None, :, None].to(device=self.device),
-            future=how_much_to_predict
-        )
-        prediction_flattened = prediction.view(how_much_to_predict).cpu()
-        y = prediction_flattened.detach().numpy()
+        ts_as_tensor = __convert_np_array_to_pytorch_tensor(ts_as_np)[None, :, None].to(get_device())
+        for _ in range(how_much_to_predict):
+            prediction = best_model.forward(ts_as_tensor)
+            ts_as_tensor = torch.cat([ts_as_tensor, prediction[None, :]], dim=1)
+        prediction_flattened = ts_as_tensor.view(how_much_to_predict + len(ts_as_df_start)).cpu()
+        y = prediction_flattened.detach().numpy()[-how_much_to_predict:]
         res = np.float64(y)
         assert isinstance(res, np.ndarray)
         assert len(res) == how_much_to_predict
