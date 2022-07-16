@@ -6,8 +6,6 @@
 
 import pytorch__driver_for_test_bench
 import torch.nn as nn
-import torch.optim as optim
-import framework__test_bench
 
 """
 ***********************************************************************************************************************
@@ -47,7 +45,7 @@ class LSTMPredictor(nn.Module):
         hidden_size_for_linear = 32
         num_layers = 2
         dropout = 0.1
-        self.model = nn.Sequential(
+        self.__seq_model = nn.Sequential(
             nn.LSTM(
                 input_size=input_size,
                 hidden_size=hidden_size_for_lstm,
@@ -67,11 +65,10 @@ class LSTMPredictor(nn.Module):
                 out_features=output_size
             )
         )
-        self.output_size = output_size
 
-    def forward(self, x, future):
-        out = self.model(x)
-        return out[:, :future]
+    def forward(self, x):
+        out = self.__seq_model(x)
+        return out
 
 
 """
@@ -82,28 +79,16 @@ class LSTMPredictor(nn.Module):
 
 
 class PytorchLSTMTester:
-    def __init__(self, longest_length_to_predict, shortest_length_to_predict, shortest_input, metric, app):
+    def __init__(self, length_of_shortest_time_series, metric, app):
         # prepare parameters
         self.__msg = "[PytorchLSTMTester]"
-        self.driver = pytorch_driver_for_test_bench.PytorchTester()
-        self.driver.model = LSTMPredictor(
+        self.__model_input_length = length_of_shortest_time_series // 2
+        self.__model = LSTMPredictor(
             input_size=1,
-            output_size=longest_length_to_predict,
-        ).to(self.driver.device)
-        learning_rate = 0.001
-        self.driver.optimizer = optim.Adam(self.driver.model.parameters(), lr=learning_rate)
-        self.driver.batch_size = 64
-        self.driver.padding = -99999
-        self.driver.num_epochs = 8
-        self.driver.sample_multiplier = 1  # Number of samples we will learn with is 1+2+3+ ... +sample_multiplier
-        # To understand why look at its use
+            output_size=1,
+        ).to(pytorch__driver_for_test_bench.get_device())
         # print
-        print(self.__msg, f"model = {self.driver.model}")
-        print(self.__msg, f"learning_rate =", learning_rate)
-        print(self.__msg, f"optimizer =", self.driver.optimizer)
-        print(self.__msg, f"batch_size =", self.driver.batch_size)
-        print(self.__msg, f"padding = {self.driver.padding}")
-        print(self.__msg, f"num_epochs =", self.driver.num_epochs)
+        print(self.__msg, f"model = {self.__model}")
 
     """
     *******************************************************************************************************************
@@ -112,7 +97,12 @@ class PytorchLSTMTester:
     """
 
     def learn_from_data_set(self, training_data_set):
-        return self.driver.learn_from_data_set(training_data_set=training_data_set)
+        pytorch__driver_for_test_bench.train_neural_network(
+            training_data_set=training_data_set,
+            model=self.__model,
+            model_input_length=self.__model_input_length
+        )
+        return None
 
     def predict(self, ts_as_df_start, how_much_to_predict):
         return self.driver.predict(ts_as_df_start=ts_as_df_start, how_much_to_predict=how_much_to_predict)
@@ -126,13 +116,10 @@ class PytorchLSTMTester:
 
 
 def main():
-    tb = test_bench.TestBench(
+    import framework__test_bench
+    tb = framework__test_bench.TestBench(
         class_to_test=PytorchLSTMTester,
         path_to_data="../data/",
-        tests_to_perform=[
-            {"metric": "node_mem", "app": "moc/smaug", "test percentage": 0.2, "sub sample rate": 5,
-             "data length limit": 20},
-        ]
     )
     tb.run_training_and_tests()
 
