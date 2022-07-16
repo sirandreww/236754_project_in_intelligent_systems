@@ -4,11 +4,11 @@
 ***********************************************************************************************************************
 """
 
-import darts
 from darts.models import RNNModel
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
 import numpy as np
+import darts__helper as dh
 
 
 """
@@ -61,15 +61,9 @@ class DartsLSTMTester:
         )
         return model
 
-    @staticmethod
-    def __get_darts_series_from_df(df):
-        arr = df["sample"].to_numpy()
-        res = darts.timeseries.TimeSeries.from_values(arr)
-        return res
-
     def learn_from_data_set(self, training_data_set):
         assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
-        list_of_series = [self.__get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
+        list_of_series = [dh.__get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
         self.__model = DartsLSTMTester.__make_model(
             length_of_shortest_time_series=self.__length_of_shortest_time_series
         )
@@ -78,7 +72,7 @@ class DartsLSTMTester:
     def predict(self, ts_as_df_start, how_much_to_predict):
         assert self.__model is not None
         assert len(ts_as_df_start) >= self.__length_of_shortest_time_series
-        series = self.__get_darts_series_from_df(ts_as_df_start)
+        series = dh.__get_darts_series_from_df(ts_as_df_start)
         res = self.__model.predict(n=how_much_to_predict, series=series, verbose=False)
         res_np_arr = res.pd_series().to_numpy()
         assert isinstance(res_np_arr, np.ndarray)
