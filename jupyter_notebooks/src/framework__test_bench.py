@@ -140,6 +140,7 @@ class TestBench:
         """
         mean_absolute_error_of_prediction = np.abs(y_true - y_pred).mean()
         mean_absolute_error_of_naive = np.abs(y_true[1:] - y_true[:-1]).mean()
+        mean_absolute_error_of_naive = mean_absolute_error_of_naive if mean_absolute_error_of_naive != 0 else 1
         return mean_absolute_error_of_prediction / mean_absolute_error_of_naive
 
     @staticmethod
