@@ -48,24 +48,24 @@ class TestBench:
             path_to_data,
             tests_to_perform=(
                 # node mem
-                {"metric": "node_mem", "app": "moc/smaug", "prediction length": 10, "sub sample rate": 10,
-                 "data length limit": 80},
-                {"metric": "node_mem", "app": "emea/balrog", "prediction length": 10, "sub sample rate": 10,
-                 "data length limit": 80},
+                {"metric": "node_mem", "app": "moc/smaug", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "node_mem", "app": "emea/balrog", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
                 # container mem
-                {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 10, "sub sample rate": 10,
-                 "data length limit": 80},
-                {"metric": "container_mem", "app": "coredns", "prediction length": 10, "sub sample rate": 10,
-                 "data length limit": 80},
-                {"metric": "container_mem", "app": "keepalived", "prediction length": 10, "sub sample rate": 10,
-                 "data length limit": 80},
+                {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "container_mem", "app": "coredns", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "container_mem", "app": "keepalived", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
                 # container cpu
-                {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 10, "sub sample rate": 10,
-                 "data length limit": 80},
-                {"metric": "container_cpu", "app": "dns", "prediction length": 10, "sub sample rate": 10,
-                 "data length limit": 80},
-                {"metric": "container_cpu", "app": "collector", "prediction length": 10, "sub sample rate": 10,
-                 "data length limit": 80},
+                {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "container_cpu", "app": "dns", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "container_cpu", "app": "collector", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
             ),
     ):
         self.__class_to_test = class_to_test
@@ -214,7 +214,7 @@ class TestBench:
         )
         return mse_here, precision, recall, f1, mase, mape
 
-    def __print_report(self, metric, app, mse, precision, recall, f1, training_time, mase, mape):
+    def __print_report(self, metric, app, mse, precision, recall, f1, training_time, mase, mape, as_table=False):
         """
         prints the following parameters
         @param metric:
@@ -225,17 +225,22 @@ class TestBench:
         @param f1:
         @param training_time:
         @param mase:
+        
+        @param as_table: whether to print as a table or not.
         """
-        print(self.__msg, f"***********************************************************************")
-        print(self.__msg, f"REPORT for                              metric='{metric}', app='{app}':")
-        print(self.__msg, f"Training time in seconds is             {training_time}")
-        print(self.__msg, f"Average mse over the test set is        {mse}")
-        print(self.__msg, f"Average precision over the test set is  {precision}")
-        print(self.__msg, f"Average recall over the test set is     {recall}")
-        print(self.__msg, f"Average F1 over the test set is         {f1}")
-        print(self.__msg, f"Average MASE over the test set is       {mase}")
-        print(self.__msg, f"Average MAPE over the test set is       {mape}")
-        print(self.__msg, f"***********************************************************************")
+        if as_table:
+            print(self.__msg, f"| {metric} | {app} | {round(training_time)} seconds   | {round(mse, 5)} | {round(precision, 5)} | {round(recall, 5)} | {round(f1, 5)}  | {round(mase, 5)} | {round(mape, 5)} |")
+        else:
+            print(self.__msg, f"***********************************************************************")
+            print(self.__msg, f"REPORT for                              metric='{metric}', app='{app}':")
+            print(self.__msg, f"Training time in seconds is             {training_time}")
+            print(self.__msg, f"Average mse over the test set is        {mse}")
+            print(self.__msg, f"Average precision over the test set is  {precision}")
+            print(self.__msg, f"Average recall over the test set is     {recall}")
+            print(self.__msg, f"Average F1 over the test set is         {f1}")
+            print(self.__msg, f"Average MASE over the test set is       {mase}")
+            print(self.__msg, f"Average MAPE over the test set is       {mape}")
+            print(self.__msg, f"***********************************************************************")
 
     def __test_model(self, test, model):
         """
@@ -306,11 +311,12 @@ class TestBench:
             full_report += [(mse, precision, recall, f1, training_time, mase, mape)]
         assert len(full_report) == len(self.__tests_to_perform)
         # plot results
+        print(self.__msg, f"| metric   | app       | training time | mse    | precision | recall | F1      | MASE       | MAPE      |")
         for dictionary, (mse, precision, recall, f1, training_time, mase, mape) in zip(self.__tests_to_perform, full_report):
             app, metric = dictionary["app"], dictionary["metric"]
             self.__print_report(
                 metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
-                training_time=training_time, mase=mase, mape=mape
+                training_time=training_time, mase=mase, mape=mape, as_table=True
             )
         print(self.__msg, "Powering off test bench")
 

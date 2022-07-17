@@ -40,7 +40,7 @@ class DartsLSTMTester:
             min_delta=0.001,
             mode='min',
         )
-        pl_trainer_kwargs = {"callbacks": [my_stopper]}
+        pl_trainer_kwargs = {'enable_progress_bar': False, "callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
 
         # Create the model
         model = RNNModel(
@@ -48,16 +48,17 @@ class DartsLSTMTester:
             input_chunk_length=length_of_shortest_time_series // 2,
             output_chunk_length=1,
             model="LSTM",
-            hidden_dim=100,
-            n_rnn_layers=1,
-            dropout=0.0,
-            training_length=24,
+            hidden_dim=200,
+            n_rnn_layers=2,
+            dropout=0.1,
+            training_length=length_of_shortest_time_series - 1,
             # shared for all models
             batch_size=128,
             n_epochs=100,
-            optimizer_kwargs={"lr": 0.001},
+            # optimizer_kwargs={"lr": 0.001},
             torch_metrics=torch_metrics,
             pl_trainer_kwargs=pl_trainer_kwargs,
+            force_reset=True,
         )
         return model
 

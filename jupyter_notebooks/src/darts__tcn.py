@@ -40,25 +40,26 @@ class DartsTCNTester:
             min_delta=0.001,
             mode='min',
         )
-        pl_trainer_kwargs = {"callbacks": [my_stopper]}
+        pl_trainer_kwargs = {'enable_progress_bar': False, "callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
 
         # Create the model
         model = TCNModel(
             # model specific
             input_chunk_length=length_of_shortest_time_series // 2,
             output_chunk_length=1,
-            kernel_size=3,
-            num_filters=3,
-            num_layers=None,
+            kernel_size=5,
+            num_filters=128,
+            num_layers=5,
             dilation_base=2,
-            weight_norm=False,
-            dropout=0.2,
+            weight_norm=True,
+            dropout=0.1,
             # shared for all models
             batch_size=128,
             n_epochs=100,
-            optimizer_kwargs={"lr": 0.001},
+            # optimizer_kwargs={"lr": 0.001},
             torch_metrics=torch_metrics,
             pl_trainer_kwargs=pl_trainer_kwargs,
+            force_reset=True,
         )
         return model
 

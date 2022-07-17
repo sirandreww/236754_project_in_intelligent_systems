@@ -134,7 +134,8 @@ def __do_epoch(epoch_num, list_of_batch, training_data_set, optimizer, model, cr
         # print(__msg, f"loss of batch {i + 1} / {len(list_of_batch)}: {loss}")
         sum_of_losses += loss
     # choose random sample and plot
-    __plot_prediction_of_random_sample(training_data_set=training_data_set, best_model=model)
+    # if epoch_num % 5 == 0:
+    #     __plot_prediction_of_random_sample(training_data_set=training_data_set, best_model=model)
     return sum_of_losses
 
 
@@ -149,17 +150,20 @@ def get_device():
     return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def train_neural_network(training_data_set, model, num_epochs, model_input_length, batch_size, optimizer, criterion):
+def train_neural_network(training_data_set, model, num_epochs, model_input_length, batch_size, optimizer, criterion, 
+                         min_training_time_in_seconds=5):
     list_of_batch = __prepare_batches(
         training_data_set=training_data_set,
         model_input_length=model_input_length,
         batch_size=batch_size
     )
     epoch_time = 0
+    training_start_time = time.time()
     min_sum_of_losses = float('inf')
     best_model = copy.deepcopy(model)
-    for e in range(num_epochs):
-        print(__msg, f"Epoch {e + 1} / {num_epochs}. Last epoch time was {epoch_time}")
+    for e in range(99999999):
+        if (e >= num_epochs) and (time.time() - training_start_time > min_training_time_in_seconds):
+            break
         epoch_start_time = time.time()
         sum_of_losses = __do_epoch(
             epoch_num=e, list_of_batch=list_of_batch, training_data_set=training_data_set, optimizer=optimizer,
@@ -172,7 +176,7 @@ def train_neural_network(training_data_set, model, num_epochs, model_input_lengt
         epoch_stop_time = time.time()
         epoch_time = epoch_stop_time - epoch_start_time
         avg_loss = sum_of_losses / len(list_of_batch)
-        print(__msg, f"************************ Average loss for the batches in the epoch: {avg_loss}")
+        print(__msg, f"Epoch {e + 1} done. Epoch time was {epoch_time}. Average loss for the batches in epoch is {avg_loss}")
     return best_model
 
 

@@ -43,7 +43,6 @@ class LSTMPredictor(nn.Module):
     def __init__(self, input_size, output_size):
         super(LSTMPredictor, self).__init__()
         hidden_size_for_lstm = 200
-        hidden_size_for_linear = 32
         num_layers = 2
         dropout = 0.1
         self.__seq_model = nn.Sequential(
@@ -55,14 +54,8 @@ class LSTMPredictor(nn.Module):
                 dropout=dropout,
             ),
             ExtractTensorAfterLSTM(),
-            # nn.ReLU(),
             nn.Linear(
                 in_features=hidden_size_for_lstm,
-                out_features=hidden_size_for_linear
-            ),
-            # nn.ReLU(),
-            nn.Linear(
-                in_features=hidden_size_for_linear,
                 out_features=output_size
             )
         )
