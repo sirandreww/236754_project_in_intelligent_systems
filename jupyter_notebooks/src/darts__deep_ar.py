@@ -9,6 +9,7 @@ from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
 import darts__helper as dh
 from darts.utils.likelihood_models import GaussianLikelihood
+import torch
 
 """
 ***********************************************************************************************************************
@@ -39,7 +40,11 @@ class DartsDEEPARTester:
             min_delta=0.001,
             mode='min',
         )
-        pl_trainer_kwargs = {"callbacks": [my_stopper], }  # "accelerator": "gpu", "gpus": [0]}
+        
+        if torch.cuda.is_available():
+            pl_trainer_kwargs = {"callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
+        else:
+            pl_trainer_kwargs = {"callbacks": [my_stopper]}
 
         # Create the model
         model = RNNModel(

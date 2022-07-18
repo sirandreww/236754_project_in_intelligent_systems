@@ -40,7 +40,11 @@ class DartsLSTMTester:
             min_delta=0.001,
             mode='min',
         )
-        pl_trainer_kwargs = {"callbacks": [my_stopper], }  # "accelerator": "gpu", "gpus": [0]}
+        
+        if torch.cuda.is_available():
+            pl_trainer_kwargs = {"callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
+        else:
+            pl_trainer_kwargs = {"callbacks": [my_stopper]}
 
         # Current best trial: ebf27_00003 with MAPE=0.21706010401248932 and parameters={'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 167, 'n_rnn_layers': 6, 'dropout': 0.08185994482725292, 'training_length': 16, 'batch_size': 112}
         # 'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 144, 'n_rnn_layers': 5, 'dropout': 0.10242930865517266, 'training_length': 16, 'batch_size': 16, 'loss_fn': MSELoss()
