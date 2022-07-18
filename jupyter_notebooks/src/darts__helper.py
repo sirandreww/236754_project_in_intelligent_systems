@@ -47,7 +47,6 @@ def __find_best_hyper_parameters(config, train_model, training_data_set, length_
     # set up ray tune callback
     tune_callback = TuneReportCallback(
         {
-            "EV": "val_ExplainedVariance",
             "MAE": "val_MeanAbsoluteError",
             "MAPE": "val_MeanAbsolutePercentageError",
         },
@@ -56,11 +55,13 @@ def __find_best_hyper_parameters(config, train_model, training_data_set, length_
 
     reporter = CLIReporter(
         parameter_columns=list(config.keys()),
-        metric_columns=["EV", "MAE", "MAPE", "training_iteration"],
+        metric_columns=["MAE", "MAPE", "training_iteration"],
     )
     
     if torch.cuda.is_available():
-        resources_per_trial = {"cpu": 2, "gpu": 1}
+        # print("GPU is available ")
+        resources_per_trial = {"cpu": 1, "gpu": 1}
+        # resources_per_trial = {"cpu": 2}
     else:
         resources_per_trial = {"cpu": 2}
 
@@ -78,7 +79,7 @@ def __find_best_hyper_parameters(config, train_model, training_data_set, length_
         resources_per_trial=resources_per_trial,
         # Using a metric instead of loss allows for
         # comparison between different likelihood or loss functions.
-        metric="EV",  # any value in TuneReportCallback.
+        metric="MAPE",  # any value in TuneReportCallback.
         mode="max",
         config=config,
         num_samples=num_samples,
@@ -99,8 +100,8 @@ def __get_train_model_function(model_name):
         class_of_model = TCNModel
 
     def __train_model(model_args, callbacks, train, val):
-        from torchmetrics import MetricCollection, MeanAbsolutePercentageError, MeanAbsoluteError, ExplainedVariance
-        torch_metrics = MetricCollection([MeanAbsolutePercentageError(), MeanAbsoluteError(), ExplainedVariance()])
+        from torchmetrics import MetricCollection, MeanAbsolutePercentageError, MeanAbsoluteError
+        torch_metrics = MetricCollection([MeanAbsolutePercentageError(), MeanAbsoluteError()])
         # Create the model using model_args from Ray Tune
         model = class_of_model(
             n_epochs=100,
@@ -177,7 +178,7 @@ def find_best_hp_for_tcn(length_of_shortest_time_series, training_data_set):
         config={
             "input_chunk_length": tune.choice([length_of_shortest_time_series // 2]),
             "output_chunk_length": tune.choice([1]),
-            "kernel_size": tune.choice([1, 2, 3, 4, 5, 6, 7, 8]),
+            "kernel_size": tune.choice([2, 3, 4, 5, 6, 7]),
             "num_filters": tune.choice([i for i in range(1, 30)]),
             "num_layers": tune.choice([i for i in range(1, 30)]),
             "dilation_base": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),

@@ -45,6 +45,9 @@ class DartsTCNTester:
             pl_trainer_kwargs = {"callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
         else:
             pl_trainer_kwargs = {"callbacks": [my_stopper]}
+            
+        # Current best trial: 896ce_00002 with EV=0.9213961362838745 and parameters={'input_chunk_length': 8, 'output_chunk_length': 1, 'kernel_size': 4, 'num_filters': 26, 'num_layers': 16, 'dilation_base': 2, 'weight_norm': False, 'dropout': 0.02, 'optimizer_kwargs': {'lr': 0.01}, 'batch_size': 128, 'loss_fn': MSELoss()}
+
 
         # Create the model
         model = TCNModel(
@@ -52,15 +55,15 @@ class DartsTCNTester:
             input_chunk_length=length_of_shortest_time_series // 2,
             output_chunk_length=1,
             kernel_size=5,
-            num_filters=27,
-            num_layers=3,
-            dilation_base=7,
-            weight_norm=True,
+            num_filters=32,
+            num_layers=2,
+            dilation_base=2,
+            weight_norm=False,
             dropout=0.03,
             # shared for all models
             batch_size=96,
             n_epochs=100,
-            # optimizer_kwargs={"lr": 0.001},
+            optimizer_kwargs={"lr": 0.01},
             torch_metrics=torch_metrics,
             pl_trainer_kwargs=pl_trainer_kwargs,
             force_reset=True,
@@ -68,16 +71,16 @@ class DartsTCNTester:
         return model
 
     def learn_from_data_set(self, training_data_set):
-        dh.find_best_hp_for_tcn(
-            length_of_shortest_time_series=self.__length_of_shortest_time_series,
-            training_data_set=training_data_set
-        )
-        # assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
-        # list_of_series = [dh.get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
-        # self.__model = self.__make_model(
-        #     length_of_shortest_time_series=self.__length_of_shortest_time_series
+        # dh.find_best_hp_for_tcn(
+        #     length_of_shortest_time_series=self.__length_of_shortest_time_series,
+        #     training_data_set=training_data_set
         # )
-        # self.__model.fit(list_of_series)
+        assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
+        list_of_series = [dh.get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
+        self.__model = self.__make_model(
+            length_of_shortest_time_series=self.__length_of_shortest_time_series
+        )
+        self.__model.fit(list_of_series)
 
     def predict(self, ts_as_df_start, how_much_to_predict):
         return dh.predict_using_model(

@@ -53,22 +53,22 @@ class TestBench:
                 # node mem
                 {"metric": "node_mem", "app": "moc/smaug", "prediction length": 16, "sub sample rate": 30,
                  "data length limit": 30},
-                # {"metric": "node_mem", "app": "emea/balrog", "prediction length": 16, "sub sample rate": 30,
-                #  "data length limit": 30},
+                {"metric": "node_mem", "app": "emea/balrog", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
                 # container mem
-                # {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 16, "sub sample rate": 30,
-                #  "data length limit": 30},
-                # {"metric": "container_mem", "app": "coredns", "prediction length": 16, "sub sample rate": 30,
-                #  "data length limit": 30},
-                # {"metric": "container_mem", "app": "keepalived", "prediction length": 16, "sub sample rate": 30,
-                #  "data length limit": 30},
+                {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "container_mem", "app": "coredns", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "container_mem", "app": "keepalived", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
                 # container cpu
-                # {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 16, "sub sample rate": 30,
-                #  "data length limit": 30},
-                # {"metric": "container_cpu", "app": "dns", "prediction length": 16, "sub sample rate": 30,
-                #  "data length limit": 30},
-                # {"metric": "container_cpu", "app": "collector", "prediction length": 16, "sub sample rate": 30,
-                #  "data length limit": 30},
+                {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "container_cpu", "app": "dns", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
+                {"metric": "container_cpu", "app": "collector", "prediction length": 16, "sub sample rate": 30,
+                 "data length limit": 30},
             ),
     ):
         self.__class_to_test = class_to_test
@@ -311,7 +311,7 @@ class TestBench:
         if torch.cuda.is_available():
             print(self.__msg, "GPU")
             print(self.__msg, "Device name:", torch.cuda.get_device_name(0))
-            os.system("nvidia - smi")
+            os.system("nvidia-smi")
         else:
             print(self.__msg, "CPU")
 
