@@ -75,17 +75,15 @@ class DartsTCNTester:
         )
         # assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
         # list_of_series = [dh.get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
-        # self.__model = DartsTCNTester.__make_model(
+        # self.__model = self.__make_model(
         #     length_of_shortest_time_series=self.__length_of_shortest_time_series
         # )
         # self.__model.fit(list_of_series)
 
     def predict(self, ts_as_df_start, how_much_to_predict):
-        assert self.__model is not None
-        assert len(ts_as_df_start) >= self.__length_of_shortest_time_series
-        series = dh.get_darts_series_from_df(ts_as_df_start)
-        res = self.__model.predict(n=how_much_to_predict, series=series, verbose=False)
-        res_np_arr = dh.get_np_array_from_series(series=res)
-        assert len(res_np_arr) == how_much_to_predict
-        assert res_np_arr.shape == (how_much_to_predict,)
-        return res_np_arr
+        return dh.predict_using_model(
+            model=self.__model,
+            ts_as_df_start=ts_as_df_start,
+            how_much_to_predict=how_much_to_predict,
+            length_of_shortest_time_series=self.__length_of_shortest_time_series
+        )

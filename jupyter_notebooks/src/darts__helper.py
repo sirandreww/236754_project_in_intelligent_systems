@@ -131,6 +131,17 @@ def get_np_array_from_series(series):
     return res_np_arr
 
 
+def predict_using_model(model, ts_as_df_start, how_much_to_predict, length_of_shortest_time_series):
+    assert model is not None
+    assert len(ts_as_df_start) >= length_of_shortest_time_series
+    series = get_darts_series_from_df(ts_as_df_start)
+    res = model.predict(n=how_much_to_predict, series=series, verbose=False)
+    res_np_arr = get_np_array_from_series(series=res)
+    assert len(res_np_arr) == how_much_to_predict
+    assert res_np_arr.shape == (how_much_to_predict,)
+    return res_np_arr
+
+
 def find_best_hp_for_lstm(length_of_shortest_time_series, training_data_set):
     from ray import tune
     import torch
@@ -152,6 +163,7 @@ def find_best_hp_for_lstm(length_of_shortest_time_series, training_data_set):
         length_to_predict=None,
         split_vertically=False
     )
+
 
 def find_best_hp_for_tcn(length_of_shortest_time_series, training_data_set):
     from ray import tune

@@ -4,7 +4,7 @@
 ***********************************************************************************************************************
 """
 
-from darts.models import RNNModel
+from darts.models import TransformerModel
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
 import darts__helper as dh
@@ -18,12 +18,12 @@ import torch
 """
 
 
-class DartsLSTMTester:
+class DartsTransformerTester:
     def __init__(self, length_of_shortest_time_series, metric, app):
         self.__length_of_shortest_time_series = length_of_shortest_time_series
 
         # constants
-        self.__msg = "[DartsLSTMTester]"
+        self.__msg = "[DartsTransformerTester]"
 
         # will change
         self.__model = None
@@ -46,23 +46,21 @@ class DartsLSTMTester:
         else:
             pl_trainer_kwargs = {"callbacks": [my_stopper]}
 
-        # Current best trial: ebf27_00003 with MAPE=0.21706010401248932 and parameters={'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 167, 'n_rnn_layers': 6, 'dropout': 0.08185994482725292, 'training_length': 16, 'batch_size': 112}
-        # 'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 144, 'n_rnn_layers': 5, 'dropout': 0.10242930865517266, 'training_length': 16, 'batch_size': 16, 'loss_fn': MSELoss()
-
-
         # Create the model
-        model = RNNModel(
+        model = TransformerModel(
             # model specific
             input_chunk_length=length_of_shortest_time_series // 2,
             output_chunk_length=1,
-            model="LSTM",
-            hidden_dim=144,
-            n_rnn_layers=5,
-            dropout=0.10242930865517266,
-            training_length=length_of_shortest_time_series - 1,
+            d_model=16,  # 64,
+            nhead=8,  # 4,
+            num_encoder_layers=2,  # 3,
+            num_decoder_layers=2,  # 3,
+            dim_feedforward=128,  # 512,
+            dropout=0.1,
+            activation="relu",
             # shared for all models
-            # loss_fn=torch.nn.L1Loss(),
-            batch_size=16,
+            loss_fn=torch.nn.L1Loss(),
+            batch_size=32,
             n_epochs=100,
             # optimizer_kwargs={"lr": 0.001},
             torch_metrics=torch_metrics,
@@ -72,7 +70,7 @@ class DartsLSTMTester:
         return model
 
     def learn_from_data_set(self, training_data_set):
-        # dh.find_best_hp_for_lstm(
+        # dh.find_best_hp_for_tcn(
         #     length_of_shortest_time_series=self.__length_of_shortest_time_series,
         #     training_data_set=training_data_set
         # )
