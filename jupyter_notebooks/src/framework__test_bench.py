@@ -9,7 +9,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import time
-
+from sktime.performance_metrics.forecasting import MeanAbsoluteScaledError
+from sktime.performance_metrics.forecasting import MeanAbsolutePercentageError
+from sktime.performance_metrics.forecasting import MeanSquaredError
 from framework__data_set import get_data_set
 
 """
@@ -133,34 +135,41 @@ class TestBench:
     """
 
     @staticmethod
-    def __calculate_mase(y_pred, y_true):
+    def __calculate_mase(y_pred, y_true, y_train):
         """
         @param y_pred: prediction of our model
         @param y_true: true results
         @return: returns the MASE of the prediction
         """
-        mean_absolute_error_of_prediction = np.abs(y_true - y_pred).mean()
-        mean_absolute_error_of_naive = np.abs(y_true[1:] - y_true[:-1]).mean()
-        mean_absolute_error_of_naive = mean_absolute_error_of_naive if mean_absolute_error_of_naive != 0 else 1
-        return mean_absolute_error_of_prediction / mean_absolute_error_of_naive
+        mase = MeanAbsoluteScaledError()
+        result = mase(y_true=y_true, y_pred=y_pred, y_train=y_train)
+        return result
 
     @staticmethod
-    def __calculate_mape(Y_actual, Y_Predicted):
-        mape = np.mean(np.abs((Y_actual - Y_Predicted) / Y_actual)) * 100
-        return mape
+    def __calculate_mape(y_true, y_pred):
+        mape = MeanAbsolutePercentageError()
+        result = mape(y_true=y_true, y_pred=y_pred)
+        return result
 
     @staticmethod
-    def __get_mse_precision_recall_f1_and_mase(original_np, predicted_np):
+    def __calculate_mse(y_true, y_pred):
+        mse = MeanSquaredError()
+        result = mse(y_true=y_true, y_pred=y_pred)
+        assert result == (np.square(y_true - y_pred)).mean()
+        return result
+
+    @staticmethod
+    def __get_mse_precision_recall_f1_mase_and_mape(y_true, y_pred, y_train):
         """
-        @param original_np: true values
-        @param predicted_np: prediction values
+        @param y_true: true values
+        @param y_pred: prediction values
         @return: the mse, precision_recall_f1 and MASE of the results
         """
-        assert len(original_np) == len(predicted_np)
-        mse_here = (np.square(original_np - predicted_np)).mean()
+        assert len(y_true) == len(y_pred)
+        mse_here = TestBench.__calculate_mse(y_pred=y_pred, y_true=y_true)
 
-        actual_positives = [original_np[i + 1] >= original_np[i] for i in range(len(original_np) - 1)]
-        predicted_positives = [predicted_np[i + 1] >= predicted_np[i] for i in range(len(predicted_np) - 1)]
+        actual_positives = [y_true[i + 1] >= y_true[i] for i in range(len(y_true) - 1)]
+        predicted_positives = [y_pred[i + 1] >= y_pred[i] for i in range(len(y_pred) - 1)]
         assert len(actual_positives) == len(predicted_positives)
         true_positive = sum([
             1 if (og == predicted and predicted) else 0
@@ -178,8 +187,8 @@ class TestBench:
         recall = true_positive / (true_positive + false_negative) if (true_positive + false_negative != 0) else 0
         f1 = (2 * precision * recall) / (precision + recall) if (precision + recall != 0) else 0
 
-        mase = TestBench.__calculate_mase(y_pred=predicted_np, y_true=original_np)
-        mape = TestBench.__calculate_mape(Y_Predicted=predicted_np, Y_actual=original_np)
+        mase = TestBench.__calculate_mase(y_pred=y_pred, y_true=y_true, y_train=y_train)
+        mape = TestBench.__calculate_mape(y_pred=y_pred, y_true=y_true)
 
         return mse_here, precision, recall, f1, mase, mape
 
@@ -209,9 +218,10 @@ class TestBench:
                 original=test_sample,
                 prediction_as_np_array=returned_ts_as_np_array,
             )
-        out_should_be = test_sample["sample"].to_numpy()[how_much_to_give:]
-        mse_here, precision, recall, f1, mase, mape = self.__get_mse_precision_recall_f1_and_mase(
-            original_np=out_should_be, predicted_np=returned_ts_as_np_array
+        out_should_be = test_sample["sample"].to_numpy()
+        mse_here, precision, recall, f1, mase, mape = self.__get_mse_precision_recall_f1_mase_and_mape(
+            y_true=out_should_be[how_much_to_give:], y_pred=returned_ts_as_np_array,
+            y_train=out_should_be[:how_much_to_give]
         )
         return mse_here, precision, recall, f1, mase, mape
 
