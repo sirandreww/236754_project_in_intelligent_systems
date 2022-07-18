@@ -4,12 +4,12 @@
 ***********************************************************************************************************************
 """
 
-from darts.models import RNNModel
+from darts.models import NBEATSModel
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
 import darts__helper as dh
-from darts.utils.likelihood_models import GaussianLikelihood
 import torch
+
 
 """
 ***********************************************************************************************************************
@@ -18,12 +18,12 @@ import torch
 """
 
 
-class DartsDeepARTester:
+class DartsNBEATSTester:
     def __init__(self, length_of_shortest_time_series, metric, app):
         self.__length_of_shortest_time_series = length_of_shortest_time_series
 
         # constants
-        self.__msg = "[DartsDeepARTester]"
+        self.__msg = "[DartsNBEATSTester]"
 
         # will change
         self.__model = None
@@ -47,16 +47,16 @@ class DartsDeepARTester:
             pl_trainer_kwargs = {"callbacks": [my_stopper]}
 
         # Create the model
-        model = RNNModel(
+
+        model = NBEATSModel(
             # model specific
             input_chunk_length=length_of_shortest_time_series // 2,
             output_chunk_length=1,
-            model="LSTM",
-            hidden_dim=400,
-            n_rnn_layers=1,
-            dropout=0.1,
-            training_length=length_of_shortest_time_series - 1,
-            likelihood=GaussianLikelihood(),
+            generic_architecture=True,
+            num_stacks=30,
+            num_blocks=1,
+            num_layers=4,
+            layer_widths=512,
             # shared for all models
             batch_size=96,
             n_epochs=100,

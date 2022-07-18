@@ -3,6 +3,7 @@
     imports
 ***********************************************************************************************************************
 """
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -50,22 +51,22 @@ class TestBench:
                 # node mem
                 {"metric": "node_mem", "app": "moc/smaug", "prediction length": 16, "sub sample rate": 30,
                  "data length limit": 30},
-                {"metric": "node_mem", "app": "emea/balrog", "prediction length": 16, "sub sample rate": 30,
-                 "data length limit": 30},
+                # {"metric": "node_mem", "app": "emea/balrog", "prediction length": 16, "sub sample rate": 30,
+                #  "data length limit": 30},
                 # container mem
-                {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 16, "sub sample rate": 30,
-                 "data length limit": 30},
-                {"metric": "container_mem", "app": "coredns", "prediction length": 16, "sub sample rate": 30,
-                 "data length limit": 30},
-                {"metric": "container_mem", "app": "keepalived", "prediction length": 16, "sub sample rate": 30,
-                 "data length limit": 30},
+                # {"metric": "container_mem", "app": "nmstate-handler", "prediction length": 16, "sub sample rate": 30,
+                #  "data length limit": 30},
+                # {"metric": "container_mem", "app": "coredns", "prediction length": 16, "sub sample rate": 30,
+                #  "data length limit": 30},
+                # {"metric": "container_mem", "app": "keepalived", "prediction length": 16, "sub sample rate": 30,
+                #  "data length limit": 30},
                 # container cpu
-                {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 16, "sub sample rate": 30,
-                 "data length limit": 30},
-                {"metric": "container_cpu", "app": "dns", "prediction length": 16, "sub sample rate": 30,
-                 "data length limit": 30},
-                {"metric": "container_cpu", "app": "collector", "prediction length": 16, "sub sample rate": 30,
-                 "data length limit": 30},
+                # {"metric": "container_cpu", "app": "kube-rbac-proxy", "prediction length": 16, "sub sample rate": 30,
+                #  "data length limit": 30},
+                # {"metric": "container_cpu", "app": "dns", "prediction length": 16, "sub sample rate": 30,
+                #  "data length limit": 30},
+                # {"metric": "container_cpu", "app": "collector", "prediction length": 16, "sub sample rate": 30,
+                #  "data length limit": 30},
             ),
     ):
         self.__class_to_test = class_to_test
@@ -225,7 +226,7 @@ class TestBench:
         @param f1:
         @param training_time:
         @param mase:
-        
+        @param mape:
         @param as_table: whether to print as a table or not.
         """
         if as_table:
@@ -294,6 +295,28 @@ class TestBench:
         print(self.__msg, f"Done with metric='{metric}', app='{app}'")
         return mse, precision, recall, f1, training_time, mase, mape
 
+    def print_device_information(self):
+        print(self.__msg, "This test was run on:")
+        import torch
+        if torch.cuda.is_available():
+            print(self.__msg, "GPU")
+            print(self.__msg, "Device name:", torch.cuda.get_device_name(0))
+            os.system("nvidia - smi")
+        else:
+            print(self.__msg, "CPU")
+
+    def print_table_of_results(self, full_report):
+        # plot results
+        h = f"| metric | app | training time | mse | precision | recall | F1 | MASE | MAPE |"
+        print(self.__msg, h)
+        for dictionary, metrics in zip(self.__tests_to_perform, full_report):
+            (mse, precision, recall, f1, training_time, mase, mape) = metrics
+            app, metric = dictionary["app"], dictionary["metric"]
+            self.__print_report(
+                metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
+                training_time=training_time, mase=mase, mape=mape, as_table=True
+            )
+
     """
     *******************************************************************************************************************
         API functions
@@ -310,14 +333,8 @@ class TestBench:
             mse, precision, recall, f1, training_time, mase, mape = self.__do_one_test(dictionary=dictionary)
             full_report += [(mse, precision, recall, f1, training_time, mase, mape)]
         assert len(full_report) == len(self.__tests_to_perform)
-        # plot results
-        print(self.__msg, f"| metric   | app       | training time | mse    | precision | recall | F1      | MASE       | MAPE      |")
-        for dictionary, (mse, precision, recall, f1, training_time, mase, mape) in zip(self.__tests_to_perform, full_report):
-            app, metric = dictionary["app"], dictionary["metric"]
-            self.__print_report(
-                metric=metric, app=app, mse=mse, precision=precision, recall=recall, f1=f1,
-                training_time=training_time, mase=mase, mape=mape, as_table=True
-            )
+        self.print_table_of_results(full_report=full_report)
+        self.print_device_information()
         print(self.__msg, "Powering off test bench")
 
 

@@ -101,6 +101,7 @@ def __prepare_batches(training_data_set, model_input_length, batch_size):
         for arr in list_of_np_array
         for i in range(len(arr) - model_input_length)
     ]
+    print(__msg, f"number of training samples = {len(list_of_input_output_np_array)}")
     list_of_input_output_np_array_batched = __partition_list_to_batches(
         list_of_something=list_of_input_output_np_array, batch_size=batch_size
     )

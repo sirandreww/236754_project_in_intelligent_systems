@@ -59,8 +59,7 @@ class DartsTransformerTester:
             dropout=0.1,
             activation="relu",
             # shared for all models
-            loss_fn=torch.nn.L1Loss(),
-            batch_size=32,
+            batch_size=96,
             n_epochs=100,
             # optimizer_kwargs={"lr": 0.001},
             torch_metrics=torch_metrics,
@@ -70,10 +69,6 @@ class DartsTransformerTester:
         return model
 
     def learn_from_data_set(self, training_data_set):
-        # dh.find_best_hp_for_tcn(
-        #     length_of_shortest_time_series=self.__length_of_shortest_time_series,
-        #     training_data_set=training_data_set
-        # )
         assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
         list_of_series = [dh.get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
         self.__model = self.__make_model(

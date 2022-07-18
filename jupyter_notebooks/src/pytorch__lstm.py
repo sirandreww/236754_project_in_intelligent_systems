@@ -76,14 +76,14 @@ class PytorchLSTMTester:
     def __init__(self, length_of_shortest_time_series, metric, app):
         # prepare parameters
         self.__msg = "[PytorchLSTMTester]"
-        self.__model_input_length = length_of_shortest_time_series // 2
+        self.__model_input_length = length_of_shortest_time_series // 4
         self.__model = LSTMPredictor(
             input_size=1,
             output_size=1,
         ).to(pytorch__driver_for_test_bench.get_device())
-        self.__optimizer = optim.Adam(self.__model.parameters())
+        self.__optimizer = optim.Adam(self.__model.parameters(), lr=0.1)
         self.__best_model = self.__model
-        self.__criterion = nn.L1Loss()
+        self.__criterion = nn.MSELoss()
         # print
         print(self.__msg, f"model = {self.__model}")
         print(self.__msg, f"optimizer = {self.__optimizer}")
@@ -99,9 +99,9 @@ class PytorchLSTMTester:
         self.__best_model = pytorch__driver_for_test_bench.train_neural_network(
             training_data_set=training_data_set,
             model=self.__model,
-            num_epochs=10,
+            num_epochs=30,
             model_input_length=self.__model_input_length,
-            batch_size=64,
+            batch_size=128,
             criterion=self.__criterion,
             optimizer=self.__optimizer
         )

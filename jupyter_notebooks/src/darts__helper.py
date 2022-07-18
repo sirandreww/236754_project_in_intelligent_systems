@@ -44,6 +44,7 @@ def __find_best_hyper_parameters(config, train_model, training_data_set, length_
     # set up ray tune callback
     tune_callback = TuneReportCallback(
         {
+            "EV": "val_ExplainedVariance",
             "MAE": "val_MeanAbsoluteError",
             "MAPE": "val_MeanAbsolutePercentageError",
         },
@@ -52,16 +53,16 @@ def __find_best_hyper_parameters(config, train_model, training_data_set, length_
 
     reporter = CLIReporter(
         parameter_columns=list(config.keys()),
-        metric_columns=["MAE", "MAPE", "training_iteration"],
+        metric_columns=["EV", "MAE", "MAPE", "training_iteration"],
     )
     
     if torch.cuda.is_available():
         resources_per_trial = {"cpu": 2, "gpu": 1}
     else:
-        resources_per_trial = {"cpu": 6}
+        resources_per_trial = {"cpu": 2}
 
     # the number of combinations to try
-    num_samples = 100
+    num_samples = 10
 
     scheduler = ASHAScheduler(max_t=1000, grace_period=3, reduction_factor=2)
 
@@ -74,8 +75,8 @@ def __find_best_hyper_parameters(config, train_model, training_data_set, length_
         resources_per_trial=resources_per_trial,
         # Using a metric instead of loss allows for
         # comparison between different likelihood or loss functions.
-        metric="MAPE",  # any value in TuneReportCallback.
-        mode="min",
+        metric="EV",  # any value in TuneReportCallback.
+        mode="max",
         config=config,
         num_samples=num_samples,
         scheduler=scheduler,
@@ -95,8 +96,8 @@ def __get_train_model_function(model_name):
         class_of_model = TCNModel
 
     def __train_model(model_args, callbacks, train, val):
-        from torchmetrics import MetricCollection, MeanAbsolutePercentageError, MeanAbsoluteError
-        torch_metrics = MetricCollection([MeanAbsolutePercentageError(), MeanAbsoluteError()])
+        from torchmetrics import MetricCollection, MeanAbsolutePercentageError, MeanAbsoluteError, ExplainedVariance
+        torch_metrics = MetricCollection([MeanAbsolutePercentageError(), MeanAbsoluteError(), ExplainedVariance()])
         # Create the model using model_args from Ray Tune
         model = class_of_model(
             n_epochs=100,
@@ -150,13 +151,14 @@ def find_best_hp_for_lstm(length_of_shortest_time_series, training_data_set):
             "input_chunk_length": tune.choice([length_of_shortest_time_series // 2]),
             "output_chunk_length": tune.choice([1]),
             "model": tune.choice(["LSTM"]),
-            "hidden_dim": tune.choice([16 * i for i in range(1, 13)]),
-            "n_rnn_layers": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-            "dropout": tune.uniform(0, 0.2),
+            "hidden_dim": tune.choice([16 * i for i in range(1, 30)]),
+            "n_rnn_layers": tune.choice([1, 2]),
+            "dropout": tune.choice([0.01 * i for i in range(1, 21)]),
             "training_length": tune.choice([length_of_shortest_time_series - 1]),
             # shared for all models
-            "batch_size": tune.choice([16 * i for i in range(1, 11)]),
-            "loss_fn": tune.choice([torch.nn.L1Loss(), torch.nn.MSELoss()])
+            "optimizer_kwargs": tune.choice([{"lr": 0.1}, {"lr": 0.05}, {"lr": 0.01}, {"lr": 0.005}, {"lr": 0.001}]),
+            "batch_size": tune.choice([16 * i for i in range(2, 11)]),
+            "loss_fn": tune.choice([torch.nn.MSELoss()])
         },
         train_model=__get_train_model_function(model_name="LSTM"),
         training_data_set=training_data_set,

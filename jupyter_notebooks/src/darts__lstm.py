@@ -46,9 +46,9 @@ class DartsLSTMTester:
         else:
             pl_trainer_kwargs = {"callbacks": [my_stopper]}
 
-        # Current best trial: ebf27_00003 with MAPE=0.21706010401248932 and parameters={'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 167, 'n_rnn_layers': 6, 'dropout': 0.08185994482725292, 'training_length': 16, 'batch_size': 112}
-        # 'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 144, 'n_rnn_layers': 5, 'dropout': 0.10242930865517266, 'training_length': 16, 'batch_size': 16, 'loss_fn': MSELoss()
-
+        # {'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 400, 'n_rnn_layers': 1,
+        #  'dropout': 0.05, 'training_length': 15, 'optimizer_kwargs': {'lr': 0.005}, 'batch_size': 128,
+        #  'loss_fn': MSELoss()}
 
         # Create the model
         model = RNNModel(
@@ -56,15 +56,14 @@ class DartsLSTMTester:
             input_chunk_length=length_of_shortest_time_series // 2,
             output_chunk_length=1,
             model="LSTM",
-            hidden_dim=144,
-            n_rnn_layers=5,
-            dropout=0.10242930865517266,
+            hidden_dim=400,
+            n_rnn_layers=1,
+            dropout=0.05,
             training_length=length_of_shortest_time_series - 1,
             # shared for all models
-            # loss_fn=torch.nn.L1Loss(),
-            batch_size=16,
+            batch_size=128,
             n_epochs=100,
-            # optimizer_kwargs={"lr": 0.001},
+            optimizer_kwargs={"lr": 0.005},
             torch_metrics=torch_metrics,
             pl_trainer_kwargs=pl_trainer_kwargs,
             force_reset=True,
