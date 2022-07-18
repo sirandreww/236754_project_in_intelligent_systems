@@ -301,7 +301,7 @@ class TestBench:
         if torch.cuda.is_available():
             print(self.__msg, "GPU")
             print(self.__msg, "Device name:", torch.cuda.get_device_name(0))
-            os.system("nvidia - smi")
+            os.system("nvidia-smi")
         else:
             print(self.__msg, "CPU")
 
