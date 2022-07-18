@@ -43,6 +43,7 @@ class LSTMPredictor(nn.Module):
     def __init__(self, input_size, output_size):
         super(LSTMPredictor, self).__init__()
         hidden_size_for_lstm = 200
+        internal_hidden_dimension = 32
         num_layers = 2
         dropout = 0.1
         self.__seq_model = nn.Sequential(
@@ -56,6 +57,10 @@ class LSTMPredictor(nn.Module):
             ExtractTensorAfterLSTM(),
             nn.Linear(
                 in_features=hidden_size_for_lstm,
+                out_features=internal_hidden_dimension
+            ),
+            nn.Linear(
+                in_features=internal_hidden_dimension,
                 out_features=output_size
             )
         )
@@ -81,7 +86,7 @@ class PytorchLSTMTester:
             input_size=1,
             output_size=1,
         ).to(pytorch__driver_for_test_bench.get_device())
-        self.__optimizer = optim.Adam(self.__model.parameters(), lr=0.1)
+        self.__optimizer = optim.Adam(self.__model.parameters())
         self.__best_model = self.__model
         self.__criterion = nn.MSELoss()
         # print
@@ -101,7 +106,7 @@ class PytorchLSTMTester:
             model=self.__model,
             num_epochs=30,
             model_input_length=self.__model_input_length,
-            batch_size=128,
+            batch_size=32,
             criterion=self.__criterion,
             optimizer=self.__optimizer
         )

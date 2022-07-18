@@ -56,8 +56,8 @@ class DartsLSTMTester:
             input_chunk_length=length_of_shortest_time_series // 2,
             output_chunk_length=1,
             model="LSTM",
-            hidden_dim=400,
-            n_rnn_layers=1,
+            hidden_dim=200,
+            n_rnn_layers=2,
             dropout=0.05,
             training_length=length_of_shortest_time_series - 1,
             # shared for all models
