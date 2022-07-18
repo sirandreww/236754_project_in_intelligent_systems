@@ -69,6 +69,9 @@ class LSTMPredictor(nn.Module):
         out = self.__seq_model(x)
         return out
 
+    def flatten_parameters(self):
+        self.__seq_model[0].flatten_parameters()
+
 
 """
 ***********************************************************************************************************************
@@ -112,6 +115,7 @@ class PytorchLSTMTester:
         )
 
     def predict(self, ts_as_df_start, how_much_to_predict):
+        self.__best_model.flatten_parameters()
         return pytorch__driver_for_test_bench.predict(
             ts_as_df_start=ts_as_df_start, how_much_to_predict=how_much_to_predict, best_model=self.__best_model
         )
