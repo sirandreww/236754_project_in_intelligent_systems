@@ -68,12 +68,16 @@ class DartsTCNTester:
         return model
 
     def learn_from_data_set(self, training_data_set):
-        assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
-        list_of_series = [dh.get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
-        self.__model = self.__make_model(
-            length_of_shortest_time_series=self.__length_of_shortest_time_series
+        dh.find_best_hp_for_tcn(
+            length_of_shortest_time_series=self.__length_of_shortest_time_series,
+            training_data_set=training_data_set
         )
-        self.__model.fit(list_of_series)
+        # assert min(len(df) for df in training_data_set) >= self.__length_of_shortest_time_series
+        # list_of_series = [dh.get_darts_series_from_df(ts_as_df) for ts_as_df in training_data_set]
+        # self.__model = self.__make_model(
+        #     length_of_shortest_time_series=self.__length_of_shortest_time_series
+        # )
+        # self.__model.fit(list_of_series)
 
     def predict(self, ts_as_df_start, how_much_to_predict):
         return dh.predict_using_model(

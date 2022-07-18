@@ -8,6 +8,7 @@ import darts
 import numpy as np
 from darts.models import RNNModel
 from darts.models import TCNModel
+import os
 
 """
 ***********************************************************************************************************************
@@ -17,12 +18,14 @@ from darts.models import TCNModel
 
 
 def __find_best_hyper_parameters(config, train_model, training_data_set, length_to_predict, split_vertically):
+    # os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
     from pytorch_lightning.callbacks import EarlyStopping
     from ray import tune
     from ray.tune import CLIReporter
     from ray.tune.integration.pytorch_lightning import TuneReportCallback
     from ray.tune.schedulers import ASHAScheduler
-    import torch 
+    import torch
+    # os.environ["RAY_DISABLE_MEMORY_MONITOR"] = "1"
 
     if split_vertically:
         train, test = training_data_set.split_to_train_and_test(length_to_predict=length_to_predict)
@@ -175,14 +178,15 @@ def find_best_hp_for_tcn(length_of_shortest_time_series, training_data_set):
             "input_chunk_length": tune.choice([length_of_shortest_time_series // 2]),
             "output_chunk_length": tune.choice([1]),
             "kernel_size": tune.choice([1, 2, 3, 4, 5, 6, 7, 8]),
-            "num_filters": tune.choice([i for i in range(1, 100)]),  
-            "num_layers": tune.choice([i for i in range(1, 100)]),  
+            "num_filters": tune.choice([i for i in range(1, 30)]),
+            "num_layers": tune.choice([i for i in range(1, 30)]),
             "dilation_base": tune.choice([1, 2, 3, 4, 5, 6, 7, 8, 9]),
             "weight_norm": tune.choice([True, False]),
-            "dropout": tune.uniform(0, 0.2),
+            "dropout": tune.choice([0.01 * i for i in range(1, 21)]),
             # shared for all models
-            "loss_fn": tune.choice([torch.nn.L1Loss(), torch.nn.MSELoss()]),
-            "batch_size": tune.choice([16 * i for i in range(1, 11)]),
+            "optimizer_kwargs": tune.choice([{"lr": 0.1}, {"lr": 0.05}, {"lr": 0.01}, {"lr": 0.005}, {"lr": 0.001}]),
+            "batch_size": tune.choice([16 * i for i in range(2, 11)]),
+            "loss_fn": tune.choice([torch.nn.MSELoss()])
         },
         train_model=__get_train_model_function(model_name="TCN"),
         training_data_set=training_data_set,
