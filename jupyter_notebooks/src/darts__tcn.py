@@ -40,7 +40,7 @@ class DartsTCNTester:
             min_delta=0.001,
             mode='min',
         )
-        pl_trainer_kwargs = {'enable_progress_bar': False, "callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
+        pl_trainer_kwargs = {"callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
 
         # Create the model
         model = TCNModel(

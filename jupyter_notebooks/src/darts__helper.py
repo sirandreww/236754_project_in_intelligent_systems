@@ -66,8 +66,8 @@ def find_best_hyper_parameters(config, train_model, training_data_set, length_to
         metric_columns=["MAE", "MAPE", "training_iteration"],
     )
 
-    # resources_per_trial = {"cpu": 8, "gpu": 1}
-    resources_per_trial = {"cpu": 2}
+    resources_per_trial = {"cpu": 2, "gpu": 1}
+    # resources_per_trial = {"cpu": 2}
 
     # the number of combinations to try
     num_samples = 100

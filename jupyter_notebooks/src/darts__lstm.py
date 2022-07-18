@@ -4,11 +4,13 @@
 ***********************************************************************************************************************
 """
 
+import darts
 from darts.models import RNNModel
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
 import numpy as np
 import darts__helper as dh
+import torch
 
 
 """
@@ -40,9 +42,10 @@ class DartsLSTMTester:
             min_delta=0.001,
             mode='min',
         )
-        pl_trainer_kwargs = {"callbacks": [my_stopper], }  # "accelerator": "gpu", "gpus": [0]}
+        pl_trainer_kwargs = {"callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
 
         # Best hyperparameters found were:  {'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 60, 'n_rnn_layers': 1, 'dropout': 0.11171057976191785, 'training_length': 15, 'batch_size': 19}
+        # Current best trial: ebf27_00003 with MAPE=0.21706010401248932 and parameters={'input_chunk_length': 8, 'output_chunk_length': 1, 'model': 'LSTM', 'hidden_dim': 167, 'n_rnn_layers': 6, 'dropout': 0.08185994482725292, 'training_length': 16, 'batch_size': 112}
 
         # Create the model
         model = RNNModel(
@@ -55,6 +58,7 @@ class DartsLSTMTester:
             dropout=0.11171057976191785,
             training_length=length_of_shortest_time_series - 1,
             # shared for all models
+            loss_fn=darts.utils.losses.MAELoss(),
             batch_size=19,
             n_epochs=100,
             # optimizer_kwargs={"lr": 0.001},
@@ -65,7 +69,7 @@ class DartsLSTMTester:
         return model
 
     @staticmethod
-    def train_model(model_args, callbacks, train, val):
+    def train_model_for_hp_tuning(model_args, callbacks, train, val):
         from torchmetrics import MetricCollection, MeanAbsolutePercentageError, MeanAbsoluteError
         torch_metrics = MetricCollection([MeanAbsolutePercentageError(), MeanAbsoluteError()])
         # Create the model using model_args from Ray Tune
@@ -81,7 +85,7 @@ class DartsLSTMTester:
         )
 
     def learn_from_data_set(self, training_data_set):
-        look_for_hp = False
+        look_for_hp = True
         if look_for_hp:
             from ray import tune
             dh.find_best_hyper_parameters(
@@ -89,14 +93,15 @@ class DartsLSTMTester:
                     "input_chunk_length": tune.choice([self.__length_of_shortest_time_series // 2]),
                     "output_chunk_length": tune.choice([1]),
                     "model": tune.choice(["LSTM"]),
-                    "hidden_dim": tune.choice([i for i in range(1, 200)]),
+                    "hidden_dim": tune.choice([i for i in range(32, 200)]),
                     "n_rnn_layers": tune.choice([1, 2, 3, 4, 5, 6, 7]),
                     "dropout": tune.uniform(0, 0.2),
                     "training_length": tune.choice([self.__length_of_shortest_time_series - 1]),
                     # shared for all models
-                    "batch_size": tune.choice([i for i in range(1, 200)]),
+                    "batch_size": tune.choice([i for i in range(32, 200)]),
+                    "loss_fn": tune.choice([darts.utils.losses.MAELoss(), torch.nn.MSELoss(), darts.utils.losses.MapeLoss()])
                 },
-                train_model=self.train_model,
+                train_model=self.train_model_for_hp_tuning,
                 training_data_set=training_data_set,
                 length_to_predict=None,
                 split_vertically=False
