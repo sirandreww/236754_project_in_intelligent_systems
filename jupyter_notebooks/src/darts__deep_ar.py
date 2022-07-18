@@ -7,7 +7,6 @@
 from darts.models import RNNModel
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
-import numpy as np
 import darts__helper as dh
 from darts.utils.likelihood_models import GaussianLikelihood
 
@@ -23,7 +22,7 @@ class DartsDEEPARTester:
         self.__length_of_shortest_time_series = length_of_shortest_time_series
 
         # constants
-        self.__msg = "[DartsDEEPARTester]"
+        self.__msg = "[DartsDeepARTester]"
 
         # will change
         self.__model = None
@@ -40,7 +39,7 @@ class DartsDEEPARTester:
             min_delta=0.001,
             mode='min',
         )
-        pl_trainer_kwargs = {"callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
+        pl_trainer_kwargs = {"callbacks": [my_stopper], }  # "accelerator": "gpu", "gpus": [0]}
 
         # Create the model
         model = RNNModel(
@@ -54,6 +53,7 @@ class DartsDEEPARTester:
             training_length=length_of_shortest_time_series - 1,
             likelihood=GaussianLikelihood(),
             # shared for all models
+            loss_fn=torch.nn.L1Loss(),
             batch_size=128,
             n_epochs=100,
             # optimizer_kwargs={"lr": 0.001},

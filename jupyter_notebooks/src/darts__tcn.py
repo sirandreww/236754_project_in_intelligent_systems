@@ -7,7 +7,6 @@
 from darts.models import TCNModel
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
-import numpy as np
 import darts__helper as dh
 
 
@@ -40,7 +39,7 @@ class DartsTCNTester:
             min_delta=0.001,
             mode='min',
         )
-        pl_trainer_kwargs = {"callbacks": [my_stopper], "accelerator": "gpu", "gpus": [0]}
+        pl_trainer_kwargs = {"callbacks": [my_stopper], }  # "accelerator": "gpu", "gpus": [0]}
 
         # Create the model
         model = TCNModel(
@@ -54,6 +53,7 @@ class DartsTCNTester:
             weight_norm=True,
             dropout=0.1,
             # shared for all models
+            loss_fn=torch.nn.L1Loss(),
             batch_size=128,
             n_epochs=100,
             # optimizer_kwargs={"lr": 0.001},
