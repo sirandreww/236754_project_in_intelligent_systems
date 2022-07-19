@@ -4,7 +4,7 @@
 ***********************************************************************************************************************
 """
 
-from darts.models import NBEATSModel
+from darts.models import TFTModel
 from pytorch_lightning.callbacks import EarlyStopping
 from torchmetrics import MeanAbsolutePercentageError
 import darts__helper as dh
@@ -18,12 +18,12 @@ import torch
 """
 
 
-class DartsNBEATSTester:
+class DartsTFTTester:
     def __init__(self, length_of_shortest_time_series, metric, app):
         self.__length_of_shortest_time_series = length_of_shortest_time_series
 
         # constants
-        self.__msg = "[DartsNBEATSTester]"
+        self.__msg = "[DartsTFTTester]"
 
         # will change
         self.__model = None
@@ -48,18 +48,18 @@ class DartsNBEATSTester:
 
         # Create the model
 
-        model = NBEATSModel(
+        model = TFTModel(
             # model specific
             input_chunk_length=length_of_shortest_time_series // 2,
             output_chunk_length=1,
-            # generic_architecture=True,
-            # num_stacks=30,
-            # num_blocks=1,
-            # num_layers=4,
-            # layer_widths=512,
+            hidden_size=64,
+            lstm_layers=2,
+            num_attention_heads=16,
+            dropout=0.1,
+            add_relative_index=True,
             # shared for all models
             n_epochs=100,
-            batch_size=128,
+            batch_size=1024,
             optimizer_kwargs={"lr": 0.05},
             torch_metrics=torch_metrics,
             pl_trainer_kwargs=pl_trainer_kwargs,
