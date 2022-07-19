@@ -45,7 +45,7 @@ class LSTMPredictor(nn.Module):
         hidden_size_for_lstm = 200
         internal_hidden_dimension = 32
         num_layers = 2
-        dropout = 0.1
+        dropout = 0.03
         self.__seq_model = nn.Sequential(
             nn.LSTM(
                 input_size=input_size,
@@ -84,12 +84,12 @@ class PytorchLSTMTester:
     def __init__(self, length_of_shortest_time_series, metric, app):
         # prepare parameters
         self.__msg = "[PytorchLSTMTester]"
-        self.__model_input_length = length_of_shortest_time_series // 4
+        self.__model_input_length = length_of_shortest_time_series // 2
         self.__model = LSTMPredictor(
             input_size=1,
             output_size=1,
         ).to(pytorch__driver_for_test_bench.get_device())
-        self.__optimizer = optim.Adam(self.__model.parameters())
+        self.__optimizer = optim.Adam(self.__model.parameters(), lr=0.01)
         self.__best_model = self.__model
         self.__criterion = nn.MSELoss()
         # print
@@ -109,7 +109,7 @@ class PytorchLSTMTester:
             model=self.__model,
             num_epochs=30,
             model_input_length=self.__model_input_length,
-            batch_size=32,
+            batch_size=64,
             criterion=self.__criterion,
             optimizer=self.__optimizer
         )
